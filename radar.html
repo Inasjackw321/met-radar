@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexRadar - Live Weather</title>
+    <title>SkySound - Weather Sounding Analysis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Leaflet for mapping -->
+    <!-- Leaflet for RainViewer tile -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -21,26 +21,28 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #0f172a;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             color: #fff;
             overflow: hidden;
-        }
-
-        #map {
-            width: 100%;
             height: 100vh;
         }
 
-        /* Simplified Top Bar */
+        /* Main Layout */
+        .container {
+            display: grid;
+            grid-template-columns: 320px 1fr 380px;
+            grid-template-rows: 64px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* Top Bar */
         .top-bar {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 64px;
+            grid-column: 1 / 4;
+            grid-row: 1;
             background: rgba(15, 23, 42, 0.95);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.2);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -55,48 +57,54 @@
         }
 
         .logo-icon {
-            font-size: 24px;
+            font-size: 28px;
         }
 
         .logo-text {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: 700;
-            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
-        .controls-section {
+        .top-controls {
             display: flex;
             align-items: center;
             gap: 16px;
         }
 
-        .control-btn {
-            padding: 8px 16px;
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 8px;
-            color: #60a5fa;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s;
+        .time-selector {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 10px;
+            padding: 8px 16px;
         }
 
-        .control-btn:hover {
-            background: rgba(59, 130, 246, 0.2);
-            border-color: rgba(59, 130, 246, 0.5);
+        .time-label {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 500;
         }
 
-        .control-btn.active {
-            background: rgba(59, 130, 246, 0.3);
-            border-color: #3b82f6;
+        .time-select {
+            background: transparent;
+            border: none;
             color: #60a5fa;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            outline: none;
+            padding: 4px 8px;
+        }
+
+        .time-select option {
+            background: #1e293b;
+            color: #e2e8f0;
         }
 
         .user-menu {
@@ -118,256 +126,340 @@
             width: 32px;
             height: 32px;
             border-radius: 50%;
-            border: 2px solid #3b82f6;
+            border: 2px solid #60a5fa;
         }
 
-        .user-name {
-            font-size: 14px;
-            font-weight: 500;
-            color: #e2e8f0;
-        }
-
-        /* Simplified Side Panel */
-        .side-panel {
-            position: absolute;
-            top: 64px;
-            right: 0;
-            width: 360px;
-            height: calc(100vh - 64px);
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            border-left: 1px solid rgba(255, 255, 255, 0.1);
-            z-index: 900;
+        /* Left Sidebar - Station Selection */
+        .left-sidebar {
+            grid-column: 1;
+            grid-row: 2;
+            background: rgba(15, 23, 42, 0.9);
+            border-right: 1px solid rgba(59, 130, 246, 0.2);
             overflow-y: auto;
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
+            padding: 20px;
         }
 
-        .side-panel.open {
-            transform: translateX(0);
+        .sidebar-section {
+            margin-bottom: 24px;
         }
 
-        .panel-section {
-            padding: 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .panel-title {
-            font-size: 16px;
+        .section-title {
+            font-size: 13px;
             font-weight: 600;
-            color: #f1f5f9;
-            margin-bottom: 16px;
-        }
-
-        .toggle-switch {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 0;
-        }
-
-        .toggle-label {
-            font-size: 14px;
-            color: #cbd5e1;
-        }
-
-        .switch {
-            position: relative;
-            width: 44px;
-            height: 24px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .switch.active {
-            background: #3b82f6;
-        }
-
-        .switch-knob {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-            transition: all 0.3s;
-        }
-
-        .switch.active .switch-knob {
-            left: 22px;
-        }
-
-        .slider-control {
-            margin: 16px 0;
-        }
-
-        .slider-label {
-            font-size: 14px;
-            color: #cbd5e1;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .slider {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: rgba(255, 255, 255, 0.1);
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-        }
-
-        .slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            border: none;
-        }
-
-        /* Warnings Panel */
-        .warnings-floating {
-            position: absolute;
-            top: 80px;
-            left: 16px;
-            max-width: 360px;
-            max-height: calc(100vh - 100px);
-            overflow-y: auto;
-            z-index: 800;
-        }
-
-        .warning-card {
-            background: rgba(239, 68, 68, 0.95);
-            backdrop-filter: blur(10px);
-            border-left: 4px solid #dc2626;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-        }
-
-        .warning-card.severe {
-            background: rgba(251, 146, 60, 0.95);
-            border-left-color: #ea580c;
-        }
-
-        .warning-card.moderate {
-            background: rgba(234, 179, 8, 0.95);
-            border-left-color: #ca8a04;
-        }
-
-        .warning-header {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .warning-area {
-            font-size: 12px;
-            opacity: 0.9;
-            margin-bottom: 4px;
-        }
-
-        .warning-time {
-            font-size: 11px;
-            opacity: 0.75;
-        }
-
-        /* Legend */
-        .legend {
-            position: absolute;
-            bottom: 16px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            padding: 12px 16px;
-            z-index: 700;
-        }
-
-        .legend-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: #cbd5e1;
-            margin-bottom: 8px;
-            text-align: center;
-        }
-
-        .legend-scale {
-            display: flex;
-            height: 16px;
-            width: 240px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .legend-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 6px;
-            font-size: 10px;
             color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
         }
 
-        /* Search Box */
         .search-box {
-            position: absolute;
-            top: 80px;
-            right: 16px;
-            width: 320px;
-            z-index: 800;
+            position: relative;
+            margin-bottom: 16px;
         }
 
         .search-input {
             width: 100%;
-            padding: 12px 16px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: #fff;
+            padding: 12px 16px 12px 40px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 10px;
+            color: #e2e8f0;
             font-size: 14px;
             outline: none;
             transition: all 0.3s;
         }
 
         .search-input:focus {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
         }
 
         .search-input::placeholder {
             color: #64748b;
         }
 
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+            color: #64748b;
+        }
+
+        .station-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .station-item {
+            padding: 12px 14px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .station-item:hover {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: rgba(59, 130, 246, 0.4);
+            transform: translateX(4px);
+        }
+
+        .station-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #60a5fa;
+        }
+
+        .station-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 4px;
+        }
+
+        .station-info {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* RainViewer Mini Map */
+        .rain-map-container {
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        #rainMap {
+            width: 100%;
+            height: 200px;
+        }
+
+        /* Main Sounding Chart Area */
+        .main-area {
+            grid-column: 2;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .chart-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .chart-subtitle {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chart-btn {
+            padding: 8px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: #60a5fa;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chart-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #60a5fa;
+        }
+
+        .chart-btn.active {
+            background: #60a5fa;
+            color: #0f172a;
+            border-color: #60a5fa;
+        }
+
+        .chart-container {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #soundingCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .no-data-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #64748b;
+        }
+
+        .no-data-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .no-data-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        /* Right Sidebar - Parameters */
+        .right-sidebar {
+            grid-column: 3;
+            grid-row: 2;
+            background: rgba(15, 23, 42, 0.9);
+            border-left: 1px solid rgba(59, 130, 246, 0.2);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .param-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .param-category {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .param-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .param-item {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .param-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+
+        .param-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e2e8f0;
+        }
+
+        .param-unit {
+            font-size: 12px;
+            color: #64748b;
+            margin-left: 4px;
+        }
+
+        .param-full {
+            grid-column: 1 / 3;
+        }
+
+        .param-highlight {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .param-highlight .param-value {
+            color: #fca5a5;
+        }
+
+        .param-good {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.1) 100%);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .param-good .param-value {
+            color: #86efac;
+        }
+
+        /* Atmospheric Layers */
+        .layers-viz {
+            background: linear-gradient(180deg,
+                rgba(135, 206, 235, 0.1) 0%,
+                rgba(100, 149, 237, 0.1) 25%,
+                rgba(70, 130, 180, 0.1) 50%,
+                rgba(176, 196, 222, 0.1) 75%,
+                rgba(240, 248, 255, 0.1) 100%
+            );
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .layer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+        }
+
+        .layer-item:last-child {
+            border-bottom: none;
+        }
+
+        .layer-name {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .layer-alt {
+            font-size: 13px;
+            font-weight: 600;
+            color: #60a5fa;
+        }
+
         /* Loading */
         .loading-overlay {
-            position: absolute;
-            top: 64px;
+            position: fixed;
+            top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(15, 23, 42, 0.8);
+            background: rgba(15, 23, 42, 0.9);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 1500;
+            z-index: 2000;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -381,180 +473,238 @@
         .loading-spinner {
             width: 48px;
             height: 48px;
-            border: 4px solid rgba(59, 130, 246, 0.2);
-            border-top-color: #3b82f6;
+            border: 4px solid rgba(96, 165, 250, 0.2);
+            border-top-color: #60a5fa;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #94a3b8;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .side-panel {
-                width: 100%;
-            }
-
-            .search-box {
-                width: calc(100% - 32px);
-            }
-
-            .warnings-floating {
-                max-width: calc(100% - 32px);
-            }
-
-            .controls-section .control-btn span {
-                display: none;
-            }
-        }
-
+        /* Scrollbar */
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
         }
 
         ::-webkit-scrollbar-track {
-            background: transparent;
+            background: rgba(30, 41, 59, 0.3);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: rgba(59, 130, 246, 0.5);
-            border-radius: 3px;
+            background: rgba(96, 165, 250, 0.4);
+            border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(59, 130, 246, 0.7);
+            background: rgba(96, 165, 250, 0.6);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 280px 1fr 320px;
+            }
+        }
+
+        @media (max-width: 968px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 64px 1fr;
+            }
+
+            .left-sidebar,
+            .right-sidebar {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Map Container -->
-    <div id="map"></div>
-
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="logo-section">
-            <div class="logo-icon">🌐</div>
-            <div class="logo-text">NexRadar</div>
-        </div>
-
-        <div class="controls-section">
-            <button class="control-btn active" id="radarBtn">
-                ⚡ <span>Radar</span>
-            </button>
-            <button class="control-btn" id="warningsBtn">
-                ⚠️ <span>Warnings</span>
-            </button>
-            <button class="control-btn" id="settingsBtn">
-                ⚙️ <span>Settings</span>
-            </button>
-        </div>
-
-        <div class="user-menu" id="userMenu">
-            <img class="user-avatar" id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=3b82f6&color=fff" alt="User">
-            <span class="user-name" id="userName">User</span>
-        </div>
-    </div>
-
-    <!-- Side Panel -->
-    <div class="side-panel" id="sidePanel">
-        <div class="panel-section">
-            <div class="panel-title">Radar Source</div>
-            <div class="toggle-switch">
-                <span class="toggle-label">NEXRAD</span>
-                <div class="switch" id="nexradSwitch">
-                    <div class="switch-knob"></div>
-                </div>
+    <div class="container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="logo-section">
+                <div class="logo-icon">🎈</div>
+                <div class="logo-text">SkySound</div>
             </div>
-            <div class="toggle-switch">
-                <span class="toggle-label">RainViewer</span>
-                <div class="switch active" id="rainviewerSwitch">
-                    <div class="switch-knob"></div>
+
+            <div class="top-controls">
+                <div class="time-selector">
+                    <span class="time-label">Time:</span>
+                    <select class="time-select" id="timeSelect">
+                        <option value="latest">Latest (00Z)</option>
+                        <option value="12z">12Z</option>
+                        <option value="00z-1">00Z Yesterday</option>
+                        <option value="12z-1">12Z Yesterday</option>
+                    </select>
+                </div>
+
+                <div class="user-menu" id="userMenu">
+                    <img class="user-avatar" id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=60a5fa&color=fff" alt="User">
                 </div>
             </div>
         </div>
 
-        <div class="panel-section">
-            <div class="panel-title">Data Layers</div>
-            <div class="toggle-switch">
-                <span class="toggle-label">NWS Warnings</span>
-                <div class="switch active" id="warningsSwitch">
-                    <div class="switch-knob"></div>
+        <!-- Left Sidebar - Station Selection -->
+        <div class="left-sidebar">
+            <div class="sidebar-section">
+                <div class="section-title">Select Station</div>
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" id="stationSearch" placeholder="Search stations...">
+                </div>
+
+                <div class="station-list" id="stationList">
+                    <!-- Stations will be populated by JavaScript -->
                 </div>
             </div>
-            <div class="toggle-switch">
-                <span class="toggle-label">Mesonet Stations</span>
-                <div class="switch active" id="mesonetSwitch">
-                    <div class="switch-knob"></div>
-                </div>
-            </div>
-            <div class="toggle-switch">
-                <span class="toggle-label">Soundings</span>
-                <div class="switch" id="soundingsSwitch">
-                    <div class="switch-knob"></div>
+
+            <div class="sidebar-section">
+                <div class="section-title">Weather Context</div>
+                <div class="rain-map-container">
+                    <div id="rainMap"></div>
                 </div>
             </div>
         </div>
 
-        <div class="panel-section">
-            <div class="panel-title">Radar Settings</div>
-            <div class="slider-control">
-                <div class="slider-label">
-                    <span>Opacity</span>
-                    <span id="opacityValue">70%</span>
+        <!-- Main Sounding Chart Area -->
+        <div class="main-area">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title" id="chartTitle">Select a station to view sounding</div>
+                    <div class="chart-subtitle" id="chartSubtitle">Upper air atmospheric profile</div>
                 </div>
-                <input type="range" class="slider" id="opacitySlider" min="0" max="100" value="70">
-            </div>
-            <div class="slider-control">
-                <div class="slider-label">
-                    <span>Animation Speed</span>
-                    <span id="speedValue">5x</span>
+                <div class="chart-controls">
+                    <button class="chart-btn active" id="skewTBtn">Skew-T</button>
+                    <button class="chart-btn" id="hodographBtn">Hodograph</button>
+                    <button class="chart-btn" id="dataBtn">Data</button>
                 </div>
-                <input type="range" class="slider" id="speedSlider" min="1" max="10" value="5">
+            </div>
+
+            <div class="chart-container">
+                <canvas id="soundingCanvas"></canvas>
+                <div class="no-data-message" id="noDataMessage">
+                    <div class="no-data-icon">🎈</div>
+                    <div class="no-data-text">Select a station to view sounding data</div>
+                </div>
             </div>
         </div>
 
-        <div class="panel-section">
-            <div class="panel-title">Account</div>
-            <button class="control-btn" id="signOutBtn" style="width: 100%;">
-                🚪 Sign Out
-            </button>
-        </div>
-    </div>
+        <!-- Right Sidebar - Parameters -->
+        <div class="right-sidebar">
+            <div class="param-card">
+                <div class="param-category">Instability Indices</div>
+                <div class="param-grid">
+                    <div class="param-item param-highlight">
+                        <div class="param-label">CAPE</div>
+                        <div class="param-value" id="capeValue">--<span class="param-unit">J/kg</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">CIN</div>
+                        <div class="param-value" id="cinValue">--<span class="param-unit">J/kg</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">LI</div>
+                        <div class="param-value" id="liValue">--<span class="param-unit">°C</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">K-Index</div>
+                        <div class="param-value" id="kIndexValue">--</div>
+                    </div>
+                </div>
+            </div>
 
-    <!-- Search Box -->
-    <div class="search-box">
-        <input type="text" class="search-input" id="searchInput" placeholder="Search location...">
-    </div>
+            <div class="param-card">
+                <div class="param-category">Key Levels</div>
+                <div class="param-grid">
+                    <div class="param-item">
+                        <div class="param-label">LCL</div>
+                        <div class="param-value" id="lclValue">--<span class="param-unit">m</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">LFC</div>
+                        <div class="param-value" id="lfcValue">--<span class="param-unit">m</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">EL</div>
+                        <div class="param-value" id="elValue">--<span class="param-unit">m</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">0°C Level</div>
+                        <div class="param-value" id="freezingValue">--<span class="param-unit">m</span></div>
+                    </div>
+                </div>
+            </div>
 
-    <!-- Warnings Panel -->
-    <div class="warnings-floating" id="warningsPanel"></div>
+            <div class="param-card">
+                <div class="param-category">Wind & Shear</div>
+                <div class="param-grid">
+                    <div class="param-item">
+                        <div class="param-label">0-1km Shear</div>
+                        <div class="param-value" id="shear01Value">--<span class="param-unit">kt</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">0-6km Shear</div>
+                        <div class="param-value" id="shear06Value">--<span class="param-unit">kt</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">SRH (0-1km)</div>
+                        <div class="param-value" id="srh01Value">--<span class="param-unit">m²/s²</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">SRH (0-3km)</div>
+                        <div class="param-value" id="srh03Value">--<span class="param-unit">m²/s²</span></div>
+                    </div>
+                </div>
+            </div>
 
-    <!-- Legend -->
-    <div class="legend">
-        <div class="legend-title">Radar Intensity (dBZ)</div>
-        <div class="legend-scale">
-            <div style="flex: 1; background: #00E5FF;"></div>
-            <div style="flex: 1; background: #00B0FF;"></div>
-            <div style="flex: 1; background: #00E400;"></div>
-            <div style="flex: 1; background: #FFFF00;"></div>
-            <div style="flex: 1; background: #FF9800;"></div>
-            <div style="flex: 1; background: #FF0000;"></div>
-            <div style="flex: 1; background: #C711E1;"></div>
-        </div>
-        <div class="legend-labels">
-            <span>5</span>
-            <span>20</span>
-            <span>35</span>
-            <span>50</span>
-            <span>65</span>
+            <div class="param-card">
+                <div class="param-category">Moisture & Thermodynamics</div>
+                <div class="param-grid">
+                    <div class="param-item param-full">
+                        <div class="param-label">Precipitable Water</div>
+                        <div class="param-value" id="pwValue">--<span class="param-unit">mm</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">Surface T</div>
+                        <div class="param-value" id="sfcTempValue">--<span class="param-unit">°C</span></div>
+                    </div>
+                    <div class="param-item">
+                        <div class="param-label">Surface Td</div>
+                        <div class="param-value" id="sfcDewValue">--<span class="param-unit">°C</span></div>
+                    </div>
+                </div>
+
+                <div class="layers-viz">
+                    <div class="layer-item">
+                        <span class="layer-name">Tropopause</span>
+                        <span class="layer-alt" id="tropoAlt">-- mb</span>
+                    </div>
+                    <div class="layer-item">
+                        <span class="layer-name">500 mb Height</span>
+                        <span class="layer-alt" id="mb500Alt">-- m</span>
+                    </div>
+                    <div class="layer-item">
+                        <span class="layer-name">850 mb Height</span>
+                        <span class="layer-alt" id="mb850Alt">-- m</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
+        <div class="loading-text">Loading sounding data...</div>
     </div>
 
     <script src="auth.js"></script>

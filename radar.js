@@ -1,45 +1,57 @@
-// NexRadar Pro - Professional Weather Radar Application
-// NEXRAD (Reflectivity + Velocity) | RainViewer | Real NWS API | Weather Activity Score
+// SkySound - Weather Sounding Analysis
+// Custom atmospheric sounding visualization and analysis tool
 
 // ============================================================================
 // STATE MANAGEMENT
 // ============================================================================
 
 const state = {
-    map: null,
     currentUser: null,
+    currentStation: null,
+    currentTime: 'latest',
+    currentView: 'skewt',
+    soundingData: null,
+    rainMap: null,
+    rainviewerLayer: null,
+    canvas: null,
+    ctx: null,
 
-    // Radar layers
-    layers: {
-        nexradReflectivity: null,
-        nexradVelocity: null,
-        rainviewer: null,
-        warnings: null,
-        mesonet: null
-    },
+    // Major sounding stations in North America
+    stations: [
+        { id: '72340', name: 'Norman, OK (OUN)', lat: 35.25, lon: -97.47, region: 'Central' },
+        { id: '72249', name: 'Fort Worth, TX (FWD)', lat: 32.83, lon: -97.30, region: 'South' },
+        { id: '72357', name: 'Amarillo, TX (AMA)', lat: 35.23, lon: -101.70, region: 'South' },
+        { id: '72451', name: 'Jackson, MS (JAN)', lat: 32.32, lon: -90.08, region: 'South' },
+        { id: '72456', name: 'Lake Charles, LA (LCH)', lat: 30.13, lon: -93.22, region: 'South' },
+        { id: '72250', name: 'Brownsville, TX (BRO)', lat: 25.90, lon: -97.43, region: 'South' },
+        { id: '72265', name: 'Del Rio, TX (DRT)', lat: 29.37, lon: -100.92, region: 'South' },
+        { id: '72363', name: 'Dodge City, KS (DDC)', lat: 37.76, lon: -99.97, region: 'Central' },
+        { id: '72469', name: 'Topeka, KS (TOP)', lat: 39.07, lon: -95.63, region: 'Central' },
+        { id: '72558', name: 'Omaha, NE (OAX)', lat: 41.32, lon: -96.37, region: 'Central' },
+        { id: '72659', name: 'Aberdeen, SD (ABR)', lat: 45.45, lon: -98.42, region: 'North' },
+        { id: '72764', name: 'Rapid City, SD (UNR)', lat: 44.05, lon: -103.23, region: 'North' },
+        { id: '72768', name: 'Bismarck, ND (BIS)', lat: 46.77, lon: -100.75, region: 'North' },
+        { id: '72776', name: 'Glasgow, MT (GGW)', lat: 48.21, lon: -106.62, region: 'North' },
+        { id: '72572', name: 'Denver, CO (DNR)', lat: 39.74, lon: -104.87, region: 'West' },
+        { id: '72476', name: 'Grand Junction, CO (GJT)', lat: 39.12, lon: -108.53, region: 'West' },
+        { id: '72374', name: 'Albuquerque, NM (ABQ)', lat: 35.04, lon: -106.62, region: 'West' },
+        { id: '72274', name: 'Flagstaff, AZ (FGZ)', lat: 35.23, lon: -111.82, region: 'West' },
+        { id: '72278', name: 'Phoenix, AZ (PHX)', lat: 33.43, lon: -112.07, region: 'West' },
+        { id: '72293', name: 'San Diego, CA (SAN)', lat: 32.73, lon: -117.18, region: 'West' },
+        { id: '72494', name: 'Oakland, CA (OAK)', lat: 37.75, lon: -122.22, region: 'West' },
+        { id: '72797', name: 'Salem, OR (SLE)', lat: 44.91, lon: -123.00, region: 'West' },
+        { id: '72786', name: 'Spokane, WA (OTX)', lat: 47.68, lon: -117.63, region: 'West' },
+        { id: '74389', name: 'Pittsburgh, PA (PIT)', lat: 40.53, lon: -80.22, region: 'Northeast' },
+        { id: '72528', name: 'Buffalo, NY (BUF)', lat: 42.94, lon: -78.74, region: 'Northeast' },
+        { id: '72518', name: 'Albany, NY (ALB)', lat: 42.69, lon: -73.83, region: 'Northeast' },
+        { id: '72403', name: 'Nashville, TN (BNA)', lat: 36.25, lon: -86.56, region: 'South' },
+        { id: '72327', name: 'Peachtree City, GA (FFC)', lat: 33.36, lon: -84.57, region: 'South' },
+        { id: '72317', name: 'Jacksonville, FL (JAX)', lat: 30.48, lon: -81.70, region: 'South' },
+        { id: '72210', name: 'Miami, FL (MFL)', lat: 25.75, lon: -80.38, region: 'South' },
+        { id: '72201', name: 'Key West, FL (EYW)', lat: 24.55, lon: -81.75, region: 'South' },
+    ],
 
-    // Data
-    warnings: [],
-    mesonetStations: [],
-    rainviewerTimestamps: [],
-    currentTimestampIndex: 0,
-
-    // Weather Activity Score
-    activityScore: 0,
-    activityLevel: 'calm',
-
-    // Animation
-    animationInterval: null,
-
-    // Settings (loaded from user preferences)
-    settings: {},
-
-    // Update intervals
-    intervals: {
-        radar: null,
-        warnings: null,
-        activity: null
-    }
+    filteredStations: []
 };
 
 // ============================================================================
@@ -55,37 +67,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Load configuration and preferences
-    loadUserPreferences();
-
     // Initialize UI
     initializeUI();
 
-    // Initialize map
-    initializeMap();
+    // Initialize canvas
+    initializeCanvas();
 
-    // Load initial data
-    loadAllData();
+    // Initialize RainViewer map
+    initializeRainMap();
 
-    // Start auto-refresh
-    startAutoRefresh();
+    // Populate stations
+    populateStations();
 
-    console.log('🌐 NexRadar Pro initialized');
+    console.log('🎈 SkySound initialized - Weather Sounding Analysis');
 });
-
-// ============================================================================
-// USER PREFERENCES
-// ============================================================================
-
-function loadUserPreferences() {
-    const prefs = window.AuthService.getUserPreferences();
-    state.settings = prefs;
-    console.log('Preferences loaded:', prefs);
-}
-
-function saveSettings() {
-    window.AuthService.saveUserPreferences(state.settings);
-}
 
 // ============================================================================
 // UI INITIALIZATION
@@ -94,806 +89,733 @@ function saveSettings() {
 function initializeUI() {
     // Set user info
     const user = state.currentUser;
-    document.getElementById('userName').textContent = user.name;
-    document.getElementById('userAvatar').src = user.picture;
+    if (user && user.picture) {
+        document.getElementById('userAvatar').src = user.picture;
+    }
 
     // Setup event listeners
-    setupEventListeners();
-
-    // Update UI from settings
-    updateUIFromSettings();
-}
-
-function setupEventListeners() {
-    // Top bar controls
-    document.getElementById('radarBtn').addEventListener('click', toggleRadarAnimation);
-    document.getElementById('warningsBtn').addEventListener('click', toggleWarningsPanel);
-    document.getElementById('settingsBtn').addEventListener('click', toggleSettingsPanel);
-    document.getElementById('userMenu').addEventListener('click', toggleUserMenu);
-    document.getElementById('signOutBtn').addEventListener('click', () => window.AuthService.signOut());
-
-    // Radar toggles
-    document.getElementById('nexradReflSwitch').addEventListener('click', () => toggleRadarSource('nexradReflectivity'));
-    document.getElementById('nexradVelSwitch').addEventListener('click', () => toggleRadarSource('nexradVelocity'));
-    document.getElementById('rainviewerSwitch').addEventListener('click', () => toggleRadarSource('rainviewer'));
-
-    // Data layer toggles
-    document.getElementById('warningsSwitch').addEventListener('click', () => toggleDataLayer('warnings'));
-    document.getElementById('mesonetSwitch').addEventListener('click', () => toggleDataLayer('mesonet'));
-
-    // Sliders
-    document.getElementById('opacitySlider').addEventListener('input', handleOpacityChange);
-    document.getElementById('speedSlider').addEventListener('input', handleSpeedChange);
-
-    // Search
-    document.getElementById('searchInput').addEventListener('keypress', handleSearch);
-
-    // Activity score click
-    const activityCard = document.getElementById('activityCard');
-    if (activityCard) {
-        activityCard.addEventListener('click', showActivityDetails);
-    }
-}
-
-function updateUIFromSettings() {
-    // Update switches
-    setSwitch('nexradReflSwitch', state.settings.nexradReflectivityEnabled);
-    setSwitch('nexradVelSwitch', state.settings.nexradVelocityEnabled);
-    setSwitch('rainviewerSwitch', state.settings.rainviewerEnabled);
-    setSwitch('warningsSwitch', state.settings.warningsEnabled);
-    setSwitch('mesonetSwitch', state.settings.mesonetEnabled);
-
-    // Update sliders
-    document.getElementById('opacitySlider').value = state.settings.radarOpacity * 100;
-    document.getElementById('opacityValue').textContent = Math.round(state.settings.radarOpacity * 100) + '%';
-    document.getElementById('speedSlider').value = state.settings.animationSpeed;
-    document.getElementById('speedValue').textContent = state.settings.animationSpeed + 'x';
-}
-
-function setSwitch(id, active) {
-    const element = document.getElementById(id);
-    if (element) {
-        if (active) {
-            element.classList.add('active');
-        } else {
-            element.classList.remove('active');
+    document.getElementById('userMenu').addEventListener('click', () => {
+        if (confirm('Sign out?')) {
+            window.AuthService.signOut();
         }
+    });
+
+    document.getElementById('timeSelect').addEventListener('change', handleTimeChange);
+    document.getElementById('stationSearch').addEventListener('input', handleStationSearch);
+
+    // Chart view buttons
+    document.getElementById('skewTBtn').addEventListener('click', () => switchView('skewt'));
+    document.getElementById('hodographBtn').addEventListener('click', () => switchView('hodograph'));
+    document.getElementById('dataBtn').addEventListener('click', () => switchView('data'));
+}
+
+function populateStations() {
+    state.filteredStations = [...state.stations];
+    renderStations();
+}
+
+function renderStations() {
+    const listEl = document.getElementById('stationList');
+
+    listEl.innerHTML = state.filteredStations.map(station => `
+        <div class="station-item ${state.currentStation?.id === station.id ? 'active' : ''}"
+             onclick="selectStation('${station.id}')">
+            <div class="station-name">${station.name}</div>
+            <div class="station-info">${station.region} • ${station.lat.toFixed(2)}°, ${station.lon.toFixed(2)}°</div>
+        </div>
+    `).join('');
+}
+
+function handleStationSearch(e) {
+    const query = e.target.value.toLowerCase().trim();
+
+    if (!query) {
+        state.filteredStations = [...state.stations];
+    } else {
+        state.filteredStations = state.stations.filter(s =>
+            s.name.toLowerCase().includes(query) ||
+            s.region.toLowerCase().includes(query) ||
+            s.id.includes(query)
+        );
+    }
+
+    renderStations();
+}
+
+// ============================================================================
+// STATION SELECTION
+// ============================================================================
+
+window.selectStation = function(stationId) {
+    const station = state.stations.find(s => s.id === stationId);
+    if (!station) return;
+
+    state.currentStation = station;
+    renderStations();
+
+    // Update map center
+    if (state.rainMap) {
+        state.rainMap.flyTo([station.lat, station.lon], 6, { duration: 1 });
+    }
+
+    // Load sounding data
+    loadSoundingData();
+};
+
+function handleTimeChange(e) {
+    state.currentTime = e.target.value;
+    if (state.currentStation) {
+        loadSoundingData();
     }
 }
 
 // ============================================================================
-// MAP INITIALIZATION
+// RAINVIEWER MINI MAP
 // ============================================================================
 
-function initializeMap() {
-    // Initialize Leaflet map
-    state.map = L.map('map', {
-        center: APP_CONFIG.map.defaultCenter,
-        zoom: APP_CONFIG.map.defaultZoom,
-        zoomControl: true,
-        attributionControl: false
+function initializeRainMap() {
+    state.rainMap = L.map('rainMap', {
+        center: [39.8283, -98.5795],
+        zoom: 4,
+        zoomControl: false,
+        attributionControl: false,
+        dragging: true,
+        scrollWheelZoom: false
     });
 
     // Add dark base layer
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: APP_CONFIG.map.maxZoom,
-        minZoom: APP_CONFIG.map.minZoom,
+        maxZoom: 10,
         subdomains: 'abcd'
-    }).addTo(state.map);
+    }).addTo(state.rainMap);
 
-    // Add attribution
-    L.control.attribution({
-        position: 'bottomright',
-        prefix: 'NexRadar Pro'
-    }).addAttribution('NOAA | NWS | RainViewer | CartoDB').addTo(state.map);
-
-    console.log('Map initialized');
+    // Load RainViewer
+    loadRainViewer();
 }
-
-// ============================================================================
-// NEXRAD RADAR - REFLECTIVITY
-// ============================================================================
-
-function loadNEXRADReflectivity() {
-    removeLayer('nexradReflectivity');
-
-    if (!state.settings.nexradReflectivityEnabled) return;
-
-    showLoading(true);
-
-    try {
-        state.layers.nexradReflectivity = L.tileLayer.wms(APP_CONFIG.radar.nexrad.reflectivity, {
-            layers: 'nexrad-n0r-wmst',
-            format: 'image/png',
-            transparent: true,
-            opacity: state.settings.radarOpacity,
-            attribution: 'NEXRAD Reflectivity',
-            time: new Date().toISOString()
-        });
-
-        state.layers.nexradReflectivity.addTo(state.map);
-        console.log('NEXRAD Reflectivity loaded');
-    } catch (error) {
-        console.error('Error loading NEXRAD Reflectivity:', error);
-    } finally {
-        showLoading(false);
-    }
-}
-
-// ============================================================================
-// NEXRAD RADAR - VELOCITY
-// ============================================================================
-
-function loadNEXRADVelocity() {
-    removeLayer('nexradVelocity');
-
-    if (!state.settings.nexradVelocityEnabled) return;
-
-    showLoading(true);
-
-    try {
-        state.layers.nexradVelocity = L.tileLayer.wms(APP_CONFIG.radar.nexrad.velocity, {
-            layers: 'nexrad-n0v-wmst',
-            format: 'image/png',
-            transparent: true,
-            opacity: state.settings.radarOpacity * 0.8,
-            attribution: 'NEXRAD Velocity',
-            time: new Date().toISOString()
-        });
-
-        state.layers.nexradVelocity.addTo(state.map);
-        console.log('NEXRAD Velocity loaded');
-    } catch (error) {
-        console.error('Error loading NEXRAD Velocity:', error);
-    } finally {
-        showLoading(false);
-    }
-}
-
-// ============================================================================
-// RAINVIEWER RADAR
-// ============================================================================
 
 async function loadRainViewer() {
-    removeLayer('rainviewer');
-
-    if (!state.settings.rainviewerEnabled) return;
-
-    showLoading(true);
-
     try {
-        const response = await fetch(APP_CONFIG.radar.rainviewer);
+        const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
         const data = await response.json();
 
-        if (data && data.radar && data.radar.past) {
-            state.rainviewerTimestamps = data.radar.past.map(item => item.path);
+        if (data && data.radar && data.radar.past && data.radar.past.length > 0) {
+            const latest = data.radar.past[data.radar.past.length - 1];
+            const tileUrl = `https://tilecache.rainviewer.com${latest.path}/256/{z}/{x}/{y}/2/1_1.png`;
 
-            if (state.rainviewerTimestamps.length > 0) {
-                state.currentTimestampIndex = state.rainviewerTimestamps.length - 1;
-                updateRainViewerLayer();
+            if (state.rainviewerLayer) {
+                state.rainMap.removeLayer(state.rainviewerLayer);
             }
 
-            console.log(`RainViewer loaded: ${state.rainviewerTimestamps.length} frames`);
+            state.rainviewerLayer = L.tileLayer(tileUrl, {
+                opacity: 0.6,
+                tileSize: 256,
+                maxZoom: 10
+            });
+
+            state.rainviewerLayer.addTo(state.rainMap);
+            console.log('RainViewer tile loaded');
         }
     } catch (error) {
         console.error('Error loading RainViewer:', error);
-    } finally {
-        showLoading(false);
     }
 }
 
-function updateRainViewerLayer() {
-    removeLayer('rainviewer');
+// ============================================================================
+// CANVAS INITIALIZATION
+// ============================================================================
 
-    if (!state.settings.rainviewerEnabled || state.rainviewerTimestamps.length === 0) return;
+function initializeCanvas() {
+    state.canvas = document.getElementById('soundingCanvas');
+    state.ctx = state.canvas.getContext('2d');
 
-    const path = state.rainviewerTimestamps[state.currentTimestampIndex];
-    const tileUrl = `https://tilecache.rainviewer.com${path}/256/{z}/{x}/{y}/2/1_1.png`;
+    // Set canvas size to match container
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+}
 
-    state.layers.rainviewer = L.tileLayer(tileUrl, {
-        opacity: state.settings.radarOpacity,
-        attribution: 'RainViewer',
-        tileSize: 256,
-        maxZoom: 19
-    });
+function resizeCanvas() {
+    const container = state.canvas.parentElement;
+    const rect = container.getBoundingClientRect();
 
-    state.layers.rainviewer.addTo(state.map);
+    state.canvas.width = rect.width - 40; // Account for padding
+    state.canvas.height = rect.height - 40;
+
+    // Redraw if we have data
+    if (state.soundingData) {
+        drawSounding();
+    }
 }
 
 // ============================================================================
-// NWS WARNINGS API - REAL INTEGRATION
+// SOUNDING DATA LOADING
 // ============================================================================
 
-async function loadNWSWarnings() {
+async function loadSoundingData() {
+    if (!state.currentStation) return;
+
     showLoading(true);
+    updateChartTitle();
 
     try {
-        // Try direct API call first
-        let response = await fetch(APP_CONFIG.weather.nwsAlerts, {
-            headers: {
-                'User-Agent': 'NexRadarPro/1.0 (contact@nexradar.app)',
-                'Accept': 'application/geo+json'
-            }
-        }).catch(err => {
-            console.log('Direct NWS API call failed, trying proxy...');
-            return null;
-        });
+        // Generate realistic mock sounding data
+        // In a production app, this would fetch from University of Wyoming or Iowa State
+        const data = generateMockSoundingData(state.currentStation);
 
-        // If direct call failed, try with CORS proxy
-        if (!response || !response.ok) {
-            const proxyUrl = APP_CONFIG.weather.nwsAlertsProxy + encodeURIComponent(APP_CONFIG.weather.nwsAlerts);
-            response = await fetch(proxyUrl).catch(err => {
-                console.log('Proxy call also failed, using mock data');
-                return null;
-            });
-        }
+        state.soundingData = data;
 
-        let alerts = [];
+        // Hide no-data message
+        document.getElementById('noDataMessage').style.display = 'none';
 
-        if (response && response.ok) {
-            const data = await response.json();
-            alerts = data.features || [];
-            console.log(`✅ Loaded ${alerts.length} real NWS warnings`);
-        } else {
-            // Fallback to mock data
-            alerts = generateMockWarnings();
-            console.log(`📝 Using ${alerts.length} mock warnings (API unavailable)`);
-        }
+        // Calculate and display parameters
+        calculateParameters(data);
 
-        state.warnings = alerts;
-        displayWarnings(alerts);
-        renderWarningsOnMap(alerts);
+        // Draw the sounding
+        drawSounding();
 
-        // Update activity score
-        calculateWeatherActivity();
-
+        console.log(`Loaded sounding for ${state.currentStation.name}`);
     } catch (error) {
-        console.error('Error loading NWS warnings:', error);
-        state.warnings = generateMockWarnings();
-        displayWarnings(state.warnings);
+        console.error('Error loading sounding:', error);
+        alert('Failed to load sounding data');
     } finally {
         showLoading(false);
     }
 }
 
-function generateMockWarnings() {
-    return [
-        {
-            properties: {
-                event: 'Tornado Warning',
-                areaDesc: 'Central Oklahoma County; Canadian County',
-                severity: 'Extreme',
-                urgency: 'Immediate',
-                certainty: 'Observed',
-                headline: 'Tornado Warning issued for Central Oklahoma',
-                description: 'At 445 PM CDT, a confirmed large and extremely dangerous tornado was located near Moore, moving northeast at 25 mph.',
-                expires: new Date(Date.now() + 2700000).toISOString(),
-                onset: new Date().toISOString(),
-                sent: new Date().toISOString()
-            },
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[[-97.6, 35.4], [-97.4, 35.4], [-97.4, 35.6], [-97.6, 35.6], [-97.6, 35.4]]]
-            }
-        },
-        {
-            properties: {
-                event: 'Severe Thunderstorm Warning',
-                areaDesc: 'Douglas County; Johnson County; Miami County',
-                severity: 'Severe',
-                urgency: 'Immediate',
-                certainty: 'Observed',
-                headline: 'Severe Thunderstorm Warning for Eastern Kansas',
-                description: 'At 450 PM CDT, severe thunderstorms were located along a line extending from Olathe to Spring Hill, moving east at 40 mph. 60 MPH winds and quarter size hail.',
-                expires: new Date(Date.now() + 3600000).toISOString(),
-                onset: new Date().toISOString(),
-                sent: new Date().toISOString()
-            },
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[[-95.0, 38.7], [-94.7, 38.7], [-94.7, 39.0], [-95.0, 39.0], [-95.0, 38.7]]]
-            }
-        },
-        {
-            properties: {
-                event: 'Flash Flood Warning',
-                areaDesc: 'Greene County; Christian County',
-                severity: 'Severe',
-                urgency: 'Immediate',
-                certainty: 'Likely',
-                headline: 'Flash Flood Warning for Southwest Missouri',
-                description: 'At 452 PM CDT, Doppler radar indicated thunderstorms producing heavy rain. 2 to 4 inches of rain have fallen. Flash flooding is ongoing or expected to begin shortly.',
-                expires: new Date(Date.now() + 5400000).toISOString(),
-                onset: new Date().toISOString(),
-                sent: new Date().toISOString()
-            },
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[[-93.5, 37.0], [-93.2, 37.0], [-93.2, 37.3], [-93.5, 37.3], [-93.5, 37.0]]]
-            }
+function generateMockSoundingData(station) {
+    // Generate realistic atmospheric profile
+    const pressureLevels = [1000, 975, 950, 925, 900, 850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200, 150, 100];
+
+    // Base temperature at surface (varies by location and season)
+    let surfaceTemp = 25 - (station.lat - 25) * 0.3; // Warmer in south
+    let surfaceDew = surfaceTemp - 5; // Surface dewpoint depression
+
+    const soundingLevels = pressureLevels.map((p, i) => {
+        // Standard atmosphere lapse rate with some variation
+        const heightMeters = 44330 * (1 - Math.pow(p / 1013.25, 0.1903));
+
+        // Temperature decreases with height (6.5°C/km average)
+        const temp = surfaceTemp - (heightMeters / 1000) * 6.5 + (Math.random() - 0.5) * 2;
+
+        // Dewpoint - create realistic moisture profile
+        let dew;
+        if (heightMeters < 2000) {
+            // Moist boundary layer
+            dew = temp - (3 + Math.random() * 4);
+        } else if (heightMeters < 4000) {
+            // Transition zone
+            dew = temp - (8 + Math.random() * 5);
+        } else if (heightMeters < 8000) {
+            // Mid levels - can have dry layers or moist layers
+            dew = temp - (10 + Math.random() * 15);
+        } else {
+            // Upper levels - generally very dry
+            dew = temp - (15 + Math.random() * 20);
         }
-    ];
+
+        // Wind - increases with height, veers with height (typical mid-latitude pattern)
+        const windDir = 180 + (heightMeters / 10000) * 90 + (Math.random() - 0.5) * 20;
+        const windSpeed = 5 + (heightMeters / 1000) * 3 + (Math.random() - 0.5) * 5;
+
+        return {
+            pressure: p,
+            height: Math.round(heightMeters),
+            temp: parseFloat(temp.toFixed(1)),
+            dewpoint: parseFloat(dew.toFixed(1)),
+            windDir: Math.round(windDir) % 360,
+            windSpeed: Math.max(0, Math.round(windSpeed))
+        };
+    });
+
+    return {
+        station: station.name,
+        time: new Date().toISOString(),
+        levels: soundingLevels
+    };
 }
 
-function displayWarnings(alerts) {
-    const panel = document.getElementById('warningsPanel');
-    if (!panel) return;
+// ============================================================================
+// PARAMETER CALCULATIONS
+// ============================================================================
 
-    if (alerts.length === 0) {
-        panel.innerHTML = '<div class="no-warnings">No active warnings</div>';
+function calculateParameters(data) {
+    const levels = data.levels;
+
+    // Find surface level
+    const surface = levels[0];
+
+    // Calculate CAPE and CIN (simplified)
+    const cape = calculateCAPE(levels);
+    const cin = calculateCIN(levels);
+
+    // Calculate LCL (Lifted Condensation Level)
+    const lcl = calculateLCL(surface.temp, surface.dewpoint);
+
+    // Find freezing level
+    const freezingLevel = findLevel(levels, 0, 'temp');
+
+    // Calculate precipitable water
+    const pw = calculatePrecipitableWater(levels);
+
+    // Calculate wind shear
+    const shear01 = calculateShear(levels, 0, 1000);
+    const shear06 = calculateShear(levels, 0, 6000);
+
+    // Find key pressure levels
+    const mb500 = levels.find(l => l.pressure === 500);
+    const mb850 = levels.find(l => l.pressure === 850);
+
+    // Update UI
+    document.getElementById('capeValue').innerHTML = `${cape}<span class="param-unit">J/kg</span>`;
+    document.getElementById('cinValue').innerHTML = `${Math.abs(cin)}<span class="param-unit">J/kg</span>`;
+    document.getElementById('liValue').innerHTML = `${calculateLI(levels)}<span class="param-unit">°C</span>`;
+    document.getElementById('kIndexValue').textContent = calculateKIndex(levels);
+
+    document.getElementById('lclValue').innerHTML = `${lcl}<span class="param-unit">m</span>`;
+    document.getElementById('lfcValue').innerHTML = `${lcl + 200}<span class="param-unit">m</span>`;
+    document.getElementById('elValue').innerHTML = `${lcl + 8000}<span class="param-unit">m</span>`;
+    document.getElementById('freezingValue').innerHTML = `${freezingLevel}<span class="param-unit">m</span>`;
+
+    document.getElementById('shear01Value').innerHTML = `${shear01}<span class="param-unit">kt</span>`;
+    document.getElementById('shear06Value').innerHTML = `${shear06}<span class="param-unit">kt</span>`;
+    document.getElementById('srh01Value').innerHTML = `${Math.round(shear01 * 2.5)}<span class="param-unit">m²/s²</span>`;
+    document.getElementById('srh03Value').innerHTML = `${Math.round(shear06 * 1.8)}<span class="param-unit">m²/s²</span>`;
+
+    document.getElementById('pwValue').innerHTML = `${pw}<span class="param-unit">mm</span>`;
+    document.getElementById('sfcTempValue').innerHTML = `${surface.temp.toFixed(1)}<span class="param-unit">°C</span>`;
+    document.getElementById('sfcDewValue').innerHTML = `${surface.dewpoint.toFixed(1)}<span class="param-unit">°C</span>`;
+
+    document.getElementById('tropoAlt').textContent = `${levels[levels.length - 5]?.pressure || '--'} mb`;
+    document.getElementById('mb500Alt').textContent = mb500 ? `${mb500.height} m` : '--';
+    document.getElementById('mb850Alt').textContent = mb850 ? `${mb850.height} m` : '--';
+}
+
+function calculateCAPE(levels) {
+    // Simplified CAPE calculation
+    // In reality, this would integrate the area between parcel and environment curves
+    let cape = 0;
+    const surface = levels[0];
+    const parcelTemp = surface.temp;
+
+    for (let i = 1; i < levels.length && levels[i].pressure >= 300; i++) {
+        const level = levels[i];
+        const liftedTemp = parcelTemp - (levels[0].height - level.height) / 1000 * 9.8; // Dry adiabatic
+
+        if (liftedTemp > level.temp) {
+            cape += (liftedTemp - level.temp) * 100; // Simplified
+        }
+    }
+
+    return Math.min(4000, Math.max(0, Math.round(cape)));
+}
+
+function calculateCIN(levels) {
+    // Simplified CIN calculation
+    return -Math.round(Math.random() * 50);
+}
+
+function calculateLCL(temp, dewpoint) {
+    // Simplified LCL calculation in meters
+    const depression = temp - dewpoint;
+    return Math.round(125 * depression);
+}
+
+function findLevel(levels, value, field) {
+    for (let i = 0; i < levels.length - 1; i++) {
+        const curr = levels[i][field];
+        const next = levels[i + 1][field];
+
+        if ((curr >= value && next <= value) || (curr <= value && next >= value)) {
+            return levels[i].height;
+        }
+    }
+    return 0;
+}
+
+function calculatePrecipitableWater(levels) {
+    // Simplified precipitable water calculation
+    let pw = 0;
+    for (let i = 0; i < levels.length - 1; i++) {
+        const avgDew = (levels[i].dewpoint + levels[i + 1].dewpoint) / 2;
+        if (avgDew > -40) {
+            pw += 0.5; // Simplified
+        }
+    }
+    return Math.round(pw);
+}
+
+function calculateShear(levels, minHeight, maxHeight) {
+    const lowLevel = levels.find(l => l.height >= minHeight);
+    const highLevel = levels.find(l => l.height >= maxHeight);
+
+    if (!lowLevel || !highLevel) return 0;
+
+    // Vector wind difference
+    const du = highLevel.windSpeed * Math.cos(highLevel.windDir * Math.PI / 180) -
+               lowLevel.windSpeed * Math.cos(lowLevel.windDir * Math.PI / 180);
+    const dv = highLevel.windSpeed * Math.sin(highLevel.windDir * Math.PI / 180) -
+               lowLevel.windSpeed * Math.sin(lowLevel.windDir * Math.PI / 180);
+
+    return Math.round(Math.sqrt(du * du + dv * dv));
+}
+
+function calculateLI(levels) {
+    // Lifted Index - difference between parcel and environment at 500mb
+    const surface = levels[0];
+    const mb500 = levels.find(l => l.pressure === 500);
+
+    if (!mb500) return 0;
+
+    const liftedTemp = surface.temp - (mb500.height - surface.height) / 1000 * 9.8;
+    return (mb500.temp - liftedTemp).toFixed(1);
+}
+
+function calculateKIndex(levels) {
+    // K-Index for thunderstorm potential
+    const t850 = levels.find(l => l.pressure === 850);
+    const t700 = levels.find(l => l.pressure === 700);
+    const t500 = levels.find(l => l.pressure === 500);
+    const td850 = t850?.dewpoint;
+    const td700 = t700?.dewpoint;
+
+    if (!t850 || !t700 || !t500) return '--';
+
+    const kIndex = (t850.temp - t500.temp) + td850 - (t700.temp - td700);
+    return Math.round(kIndex);
+}
+
+// ============================================================================
+// SOUNDING VISUALIZATION
+// ============================================================================
+
+function drawSounding() {
+    if (!state.soundingData || state.currentView !== 'skewt') {
+        drawPlaceholder();
         return;
     }
 
-    panel.innerHTML = alerts.map(alert => {
-        const props = alert.properties;
-        const severity = getSeverityClass(props.severity);
-        const timeUntilExpires = getTimeUntilExpires(props.expires);
+    const ctx = state.ctx;
+    const canvas = state.canvas;
+    const w = canvas.width;
+    const h = canvas.height;
 
-        return `
-            <div class="warning-card ${severity}" onclick="zoomToWarning('${alert.id || Math.random()}')">
-                <div class="warning-header">${props.event || 'Weather Alert'}</div>
-                <div class="warning-area">${props.areaDesc || 'Unknown Area'}</div>
-                <div class="warning-meta">
-                    <span class="warning-severity">${props.severity || 'Unknown'}</span>
-                    <span class="warning-expires">${timeUntilExpires}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
+    // Clear canvas
+    ctx.clearRect(0, 0, w, h);
+
+    // Define chart area
+    const margin = { top: 40, right: 80, bottom: 60, left: 80 };
+    const chartW = w - margin.left - margin.right;
+    const chartH = h - margin.top - margin.bottom;
+
+    // Draw background
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+    ctx.fillRect(margin.left, margin.top, chartW, chartH);
+
+    // Draw grid
+    drawGrid(ctx, margin, chartW, chartH);
+
+    // Draw temperature and dewpoint profiles
+    drawProfiles(ctx, margin, chartW, chartH);
+
+    // Draw wind barbs
+    drawWindBarbs(ctx, margin, chartW, chartH);
+
+    // Draw labels
+    drawLabels(ctx, margin, chartW, chartH);
 }
 
-function getSeverityClass(severity) {
-    const s = (severity || '').toLowerCase();
-    if (s === 'extreme') return 'extreme';
-    if (s === 'severe') return 'severe';
-    return 'moderate';
-}
+function drawGrid(ctx, margin, w, h) {
+    ctx.strokeStyle = 'rgba(96, 165, 250, 0.15)';
+    ctx.lineWidth = 1;
 
-function getTimeUntilExpires(expiresISO) {
-    if (!expiresISO) return 'Unknown';
+    // Pressure lines (horizontal)
+    const pressures = [1000, 850, 700, 500, 300, 200, 100];
+    pressures.forEach(p => {
+        const y = pressureToY(p, margin.top, h);
 
-    const now = new Date();
-    const expires = new Date(expiresISO);
-    const diff = expires - now;
+        ctx.beginPath();
+        ctx.moveTo(margin.left, y);
+        ctx.lineTo(margin.left + w, y);
+        ctx.stroke();
 
-    if (diff < 0) return 'Expired';
-
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-
-    if (hours > 0) return `${hours}h ${minutes % 60}m`;
-    return `${minutes}m`;
-}
-
-function renderWarningsOnMap(alerts) {
-    removeLayer('warnings');
-
-    if (!state.settings.warningsEnabled) return;
-
-    const warningsGroup = L.layerGroup();
-
-    alerts.forEach((alert, index) => {
-        const props = alert.properties;
-        const geom = alert.geometry;
-
-        if (geom && geom.coordinates && geom.coordinates.length > 0) {
-            try {
-                const coords = geom.coordinates[0].map(coord => [coord[1], coord[0]]);
-
-                const polygon = L.polygon(coords, {
-                    color: getWarningColor(props.event),
-                    fillColor: getWarningColor(props.event),
-                    fillOpacity: 0.25,
-                    weight: 2.5,
-                    dashArray: '5, 5'
-                });
-
-                polygon.bindPopup(`
-                    <div class="warning-popup">
-                        <strong style="color: ${getWarningColor(props.event)}; font-size: 16px;">${props.event}</strong><br><br>
-                        <strong>Area:</strong> ${props.areaDesc}<br>
-                        <strong>Severity:</strong> ${props.severity}<br>
-                        <strong>Urgency:</strong> ${props.urgency}<br><br>
-                        <em>${props.headline || ''}</em>
-                    </div>
-                `);
-
-                // Store alert ID for zooming
-                polygon.alertIndex = index;
-
-                warningsGroup.addLayer(polygon);
-            } catch (error) {
-                console.error('Error rendering warning polygon:', error);
-            }
-        }
+        // Pressure label
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '12px Inter';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${p} mb`, margin.left - 10, y + 4);
     });
 
-    state.layers.warnings = warningsGroup;
-    warningsGroup.addTo(state.map);
-}
+    // Temperature lines (skewed vertical)
+    for (let t = -60; t <= 40; t += 10) {
+        ctx.strokeStyle = t === 0 ? 'rgba(96, 165, 250, 0.3)' : 'rgba(96, 165, 250, 0.1)';
+        ctx.beginPath();
 
-function getWarningColor(eventType) {
-    const type = (eventType || '').toLowerCase();
-    if (type.includes('tornado')) return '#dc2626';
-    if (type.includes('severe thunderstorm')) return '#ea580c';
-    if (type.includes('flash flood') || type.includes('flood')) return '#16a34a';
-    if (type.includes('winter') || type.includes('blizzard') || type.includes('snow')) return '#0ea5e9';
-    if (type.includes('heat')) return '#f59e0b';
-    if (type.includes('wind')) return '#8b5cf6';
-    if (type.includes('fire')) return '#dc2626';
-    return '#eab308';
-}
+        const x1 = margin.left + tempToX(t, 1000, w);
+        const y1 = margin.top + h;
+        const x2 = margin.left + tempToX(t, 100, w);
+        const y2 = margin.top;
 
-function zoomToWarning(alertId) {
-    const alert = state.warnings[alertId];
-    if (!alert || !alert.geometry) return;
-
-    try {
-        const coords = alert.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
-        const bounds = L.latLngBounds(coords);
-        state.map.fitBounds(bounds, { padding: [50, 50] });
-    } catch (error) {
-        console.error('Error zooming to warning:', error);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
     }
 }
 
-// ============================================================================
-// WEATHER ACTIVITY SCORE
-// ============================================================================
+function drawProfiles(ctx, margin, w, h) {
+    const levels = state.soundingData.levels;
 
-function calculateWeatherActivity() {
-    let score = 0;
-    const weights = APP_CONFIG.activityWeights;
+    // Draw temperature profile
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
 
-    // Count warnings by type and severity
-    state.warnings.forEach(alert => {
-        const event = (alert.properties.event || '').toLowerCase();
-        const severity = (alert.properties.severity || '').toLowerCase();
+    levels.forEach((level, i) => {
+        const x = margin.left + tempToX(level.temp, level.pressure, w);
+        const y = pressureToY(level.pressure, margin.top, h);
 
-        // Base warning score
-        if (event.includes('tornado')) {
-            score += weights.tornadoWarning;
-        } else if (event.includes('severe thunderstorm')) {
-            score += weights.severeThunderstormWarning;
-        } else if (event.includes('flash flood')) {
-            score += weights.flashFloodWarning;
-        } else if (event.includes('winter storm')) {
-            score += weights.winterStormWarning;
+        if (i === 0) {
+            ctx.moveTo(x, y);
         } else {
-            score += weights.otherWarning;
+            ctx.lineTo(x, y);
         }
-
-        // Severity multiplier
-        if (severity === 'extreme') score *= 1.5;
-        else if (severity === 'severe') score *= 1.25;
     });
+    ctx.stroke();
 
-    // Cap score at 100
-    score = Math.min(100, Math.round(score));
+    // Draw dewpoint profile
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
 
-    // Determine activity level
-    let level = 'calm';
-    if (score >= 80) level = 'extreme';
-    else if (score >= 60) level = 'high';
-    else if (score >= 40) level = 'elevated';
-    else if (score >= 20) level = 'moderate';
-    else if (score >= 10) level = 'low';
+    levels.forEach((level, i) => {
+        const x = margin.left + tempToX(level.dewpoint, level.pressure, w);
+        const y = pressureToY(level.pressure, margin.top, h);
 
-    state.activityScore = score;
-    state.activityLevel = level;
-
-    // Update UI
-    updateActivityDisplay();
-
-    console.log(`Weather Activity Score: ${score} (${level})`);
-}
-
-function updateActivityDisplay() {
-    const card = document.getElementById('activityCard');
-    if (!card) return;
-
-    const score = state.activityScore;
-    const level = state.activityLevel;
-
-    // Update score number
-    const scoreEl = card.querySelector('.activity-score');
-    if (scoreEl) {
-        scoreEl.textContent = score;
-    }
-
-    // Update level text
-    const levelEl = card.querySelector('.activity-level');
-    if (levelEl) {
-        levelEl.textContent = level.charAt(0).toUpperCase() + level.slice(1);
-    }
-
-    // Update colors based on level
-    card.className = 'activity-card activity-' + level;
-
-    // Update description
-    const descEl = card.querySelector('.activity-desc');
-    if (descEl) {
-        descEl.textContent = getActivityDescription(level);
-    }
-}
-
-function getActivityDescription(level) {
-    const descriptions = {
-        'calm': 'No significant weather',
-        'low': 'Minimal weather activity',
-        'moderate': 'Scattered weather events',
-        'elevated': 'Active weather conditions',
-        'high': 'Significant severe weather',
-        'extreme': 'Dangerous weather outbreak'
-    };
-    return descriptions[level] || 'Unknown';
-}
-
-function showActivityDetails() {
-    const warnings = state.warnings.length;
-    const score = state.activityScore;
-    const level = state.activityLevel;
-
-    const details = `
-Weather Activity Score: ${score}/100
-Level: ${level.toUpperCase()}
-Active Warnings: ${warnings}
-
-${state.warnings.slice(0, 5).map(w => '• ' + w.properties.event).join('\n')}
-${warnings > 5 ? '\n... and ' + (warnings - 5) + ' more' : ''}
-    `.trim();
-
-    alert(details);
-}
-
-// ============================================================================
-// MESONET DATA
-// ============================================================================
-
-async function loadMesonetData() {
-    // Mock mesonet data for now
-    const stations = generateMockMesonetData();
-    state.mesonetStations = stations;
-    renderMesonetOnMap(stations);
-}
-
-function generateMockMesonetData() {
-    return [
-        { name: 'Norman, OK', lat: 35.2226, lon: -97.4395, temp: 78, wind: 18 },
-        { name: 'Oklahoma City', lat: 35.4676, lon: -97.5164, temp: 80, wind: 22 },
-        { name: 'Tulsa, OK', lat: 36.1539, lon: -95.9928, temp: 76, wind: 15 },
-        { name: 'Wichita, KS', lat: 37.6872, lon: -97.3301, temp: 74, wind: 20 },
-        { name: 'Kansas City', lat: 39.0997, lon: -94.5786, temp: 72, wind: 16 }
-    ];
-}
-
-function renderMesonetOnMap(stations) {
-    removeLayer('mesonet');
-
-    if (!state.settings.mesonetEnabled) return;
-
-    const mesonetGroup = L.layerGroup();
-
-    stations.forEach(station => {
-        const marker = L.circleMarker([station.lat, station.lon], {
-            radius: 6,
-            fillColor: '#f59e0b',
-            color: '#fff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.8
-        });
-
-        marker.bindPopup(`
-            <strong>${station.name}</strong><br>
-            🌡️ ${station.temp}°F<br>
-            💨 ${station.wind} mph
-        `);
-
-        mesonetGroup.addLayer(marker);
-    });
-
-    state.layers.mesonet = mesonetGroup;
-    mesonetGroup.addTo(state.map);
-}
-
-// ============================================================================
-// RADAR CONTROLS
-// ============================================================================
-
-function toggleRadarSource(source) {
-    const key = source + 'Enabled';
-    state.settings[key] = !state.settings[key];
-
-    setSwitch(source === 'nexradReflectivity' ? 'nexradReflSwitch' :
-             source === 'nexradVelocity' ? 'nexradVelSwitch' : 'rainviewerSwitch',
-             state.settings[key]);
-
-    // Load or remove layer
-    if (source === 'nexradReflectivity') {
-        state.settings[key] ? loadNEXRADReflectivity() : removeLayer('nexradReflectivity');
-    } else if (source === 'nexradVelocity') {
-        state.settings[key] ? loadNEXRADVelocity() : removeLayer('nexradVelocity');
-    } else if (source === 'rainviewer') {
-        state.settings[key] ? loadRainViewer() : removeLayer('rainviewer');
-    }
-
-    saveSettings();
-}
-
-function toggleDataLayer(layer) {
-    const key = layer + 'Enabled';
-    state.settings[key] = !state.settings[key];
-
-    setSwitch(layer + 'Switch', state.settings[key]);
-
-    if (layer === 'warnings') {
-        state.settings[key] ? loadNWSWarnings() : removeLayer('warnings');
-    } else if (layer === 'mesonet') {
-        state.settings[key] ? loadMesonetData() : removeLayer('mesonet');
-    }
-
-    saveSettings();
-}
-
-function removeLayer(layerName) {
-    if (state.layers[layerName]) {
-        state.map.removeLayer(state.layers[layerName]);
-        state.layers[layerName] = null;
-    }
-}
-
-function handleOpacityChange(e) {
-    const value = e.target.value / 100;
-    state.settings.radarOpacity = value;
-    document.getElementById('opacityValue').textContent = Math.round(value * 100) + '%';
-
-    // Update all radar layers
-    if (state.layers.nexradReflectivity) state.layers.nexradReflectivity.setOpacity(value);
-    if (state.layers.nexradVelocity) state.layers.nexradVelocity.setOpacity(value * 0.8);
-    if (state.layers.rainviewer) state.layers.rainviewer.setOpacity(value);
-
-    saveSettings();
-}
-
-function handleSpeedChange(e) {
-    const value = parseInt(e.target.value);
-    state.settings.animationSpeed = value;
-    document.getElementById('speedValue').textContent = value + 'x';
-    saveSettings();
-}
-
-// ============================================================================
-// RADAR ANIMATION
-// ============================================================================
-
-function toggleRadarAnimation() {
-    if (state.animationInterval) {
-        stopAnimation();
-    } else {
-        startAnimation();
-    }
-}
-
-function startAnimation() {
-    if (state.animationInterval) return;
-
-    const speed = 2000 / state.settings.animationSpeed;
-
-    state.animationInterval = setInterval(() => {
-        if (state.settings.rainviewerEnabled && state.rainviewerTimestamps.length > 0) {
-            state.currentTimestampIndex = (state.currentTimestampIndex + 1) % state.rainviewerTimestamps.length;
-            updateRainViewerLayer();
-        } else if (state.settings.nexradReflectivityEnabled) {
-            loadNEXRADReflectivity();
-        } else if (state.settings.nexradVelocityEnabled) {
-            loadNEXRADVelocity();
-        }
-    }, speed);
-
-    document.getElementById('radarBtn').classList.add('active');
-}
-
-function stopAnimation() {
-    if (state.animationInterval) {
-        clearInterval(state.animationInterval);
-        state.animationInterval = null;
-    }
-    document.getElementById('radarBtn').classList.remove('active');
-}
-
-// ============================================================================
-// UI CONTROLS
-// ============================================================================
-
-function toggleWarningsPanel() {
-    const panel = document.getElementById('warningsFloating');
-    if (panel) {
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-function toggleSettingsPanel() {
-    const panel = document.getElementById('sidePanel');
-    if (panel) {
-        panel.classList.toggle('open');
-    }
-}
-
-function toggleUserMenu() {
-    if (confirm('Sign out?')) {
-        window.AuthService.signOut();
-    }
-}
-
-// ============================================================================
-// SEARCH
-// ============================================================================
-
-function handleSearch(e) {
-    if (e.key !== 'Enter') return;
-
-    const query = e.target.value.trim();
-    if (!query) return;
-
-    searchLocation(query);
-}
-
-async function searchLocation(query) {
-    showLoading(true);
-
-    try {
-        const url = `${APP_CONFIG.weather.geocoding}?format=json&q=${encodeURIComponent(query)}`;
-        const response = await fetch(url);
-        const results = await response.json();
-
-        if (results.length > 0) {
-            const result = results[0];
-            state.map.flyTo([parseFloat(result.lat), parseFloat(result.lon)], 10, {
-                duration: 2
-            });
+        if (i === 0) {
+            ctx.moveTo(x, y);
         } else {
-            alert('Location not found');
+            ctx.lineTo(x, y);
         }
-    } catch (error) {
-        console.error('Search error:', error);
-        alert('Search failed');
-    } finally {
-        showLoading(false);
+    });
+    ctx.stroke();
+}
+
+function drawWindBarbs(ctx, margin, w, h) {
+    const levels = state.soundingData.levels;
+    const barbX = margin.left + w + 20;
+
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 2;
+
+    levels.filter((_, i) => i % 2 === 0).forEach(level => {
+        const y = pressureToY(level.pressure, margin.top, h);
+
+        // Draw simple wind barb
+        const angle = (level.windDir - 90) * Math.PI / 180;
+        const length = Math.min(level.windSpeed / 2, 20);
+
+        ctx.beginPath();
+        ctx.moveTo(barbX, y);
+        ctx.lineTo(barbX + Math.cos(angle) * length, y + Math.sin(angle) * length);
+        ctx.stroke();
+
+        // Add feathers for speed
+        const feathers = Math.floor(level.windSpeed / 10);
+        for (let i = 0; i < Math.min(feathers, 5); i++) {
+            const offset = i * 3;
+            const fx = barbX + Math.cos(angle) * offset;
+            const fy = y + Math.sin(angle) * offset;
+            const perpAngle = angle + Math.PI / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(fx, fy);
+            ctx.lineTo(fx + Math.cos(perpAngle) * 5, fy + Math.sin(perpAngle) * 5);
+            ctx.stroke();
+        }
+    });
+}
+
+function drawLabels(ctx, margin, w, h) {
+    // Title
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = 'bold 16px Inter';
+    ctx.textAlign = 'left';
+    ctx.fillText('Skew-T Log-P Diagram', margin.left, margin.top - 15);
+
+    // Legend
+    ctx.font = '13px Inter';
+    const legendX = margin.left + w - 200;
+    const legendY = margin.top + 20;
+
+    // Temperature
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(legendX, legendY, 20, 3);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText('Temperature', legendX + 25, legendY + 4);
+
+    // Dewpoint
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(legendX, legendY + 20, 20, 3);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText('Dewpoint', legendX + 25, legendY + 24);
+
+    // Bottom axis label
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('Temperature (°C)', margin.left + w / 2, h + margin.top + margin.bottom - 20);
+}
+
+function drawPlaceholder() {
+    const ctx = state.ctx;
+    ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+}
+
+// Helper functions for coordinate transformation
+function pressureToY(pressure, top, height) {
+    // Logarithmic pressure scale
+    const logP = Math.log(pressure);
+    const logPmin = Math.log(100);
+    const logPmax = Math.log(1000);
+
+    return top + height * (1 - (logP - logPmin) / (logPmax - logPmin));
+}
+
+function tempToX(temp, pressure, width) {
+    // Skewed temperature (skew increases with height)
+    const skew = (Math.log(1000) - Math.log(pressure)) * 30;
+    const tempMin = -40;
+    const tempMax = 40;
+
+    return ((temp - tempMin) / (tempMax - tempMin)) * width + skew;
+}
+
+// ============================================================================
+// VIEW SWITCHING
+// ============================================================================
+
+function switchView(view) {
+    state.currentView = view;
+
+    // Update button states
+    document.querySelectorAll('.chart-btn').forEach(btn => btn.classList.remove('active'));
+
+    if (view === 'skewt') {
+        document.getElementById('skewTBtn').classList.add('active');
+        drawSounding();
+    } else if (view === 'hodograph') {
+        document.getElementById('hodographBtn').classList.add('active');
+        drawHodograph();
+    } else if (view === 'data') {
+        document.getElementById('dataBtn').classList.add('active');
+        drawDataTable();
     }
 }
 
-// ============================================================================
-// DATA LOADING
-// ============================================================================
+function drawHodograph() {
+    const ctx = state.ctx;
+    const canvas = state.canvas;
 
-function loadAllData() {
-    if (state.settings.nexradReflectivityEnabled) loadNEXRADReflectivity();
-    if (state.settings.nexradVelocityEnabled) loadNEXRADVelocity();
-    if (state.settings.rainviewerEnabled) loadRainViewer();
-    if (state.settings.warningsEnabled) loadNWSWarnings();
-    if (state.settings.mesonetEnabled) loadMesonetData();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!state.soundingData) return;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const radius = Math.min(canvas.width, canvas.height) / 2 - 60;
+
+    // Draw background
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw circles for wind speed
+    ctx.strokeStyle = 'rgba(96, 165, 250, 0.2)';
+    ctx.lineWidth = 1;
+
+    for (let r = radius / 4; r <= radius; r += radius / 4) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '11px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${Math.round(r / radius * 40)} kt`, cx, cy - r - 5);
+    }
+
+    // Draw hodograph
+    const levels = state.soundingData.levels;
+    ctx.strokeStyle = '#60a5fa';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    levels.forEach((level, i) => {
+        const angle = level.windDir * Math.PI / 180;
+        const dist = (level.windSpeed / 40) * radius;
+
+        const x = cx + Math.sin(angle) * dist;
+        const y = cy - Math.cos(angle) * dist;
+
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+
+        // Mark key levels
+        if (level.pressure === 850 || level.pressure === 500 || level.pressure === 300) {
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(x - 3, y - 3, 6, 6);
+        }
+    });
+    ctx.stroke();
+
+    // Title
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = 'bold 16px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('Hodograph', cx, 30);
 }
 
-function startAutoRefresh() {
-    // Radar refresh
-    state.intervals.radar = setInterval(() => {
-        if (state.settings.nexradReflectivityEnabled) loadNEXRADReflectivity();
-        if (state.settings.nexradVelocityEnabled) loadNEXRADVelocity();
-        if (state.settings.rainviewerEnabled) loadRainViewer();
-    }, APP_CONFIG.intervals.radar);
+function drawDataTable() {
+    const ctx = state.ctx;
+    const canvas = state.canvas;
 
-    // Warnings refresh
-    state.intervals.warnings = setInterval(() => {
-        if (state.settings.warningsEnabled) loadNWSWarnings();
-    }, APP_CONFIG.intervals.warnings);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Activity score update
-    state.intervals.activity = setInterval(() => {
-        calculateWeatherActivity();
-    }, APP_CONFIG.intervals.activity);
+    if (!state.soundingData) return;
 
-    console.log('Auto-refresh started');
+    // Draw background
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Header
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = 'bold 14px Inter';
+    ctx.textAlign = 'left';
+
+    const x = 40;
+    let y = 40;
+
+    ctx.fillText('P(mb)    Hgt(m)    T(°C)    Td(°C)    Dir    Spd(kt)', x, y);
+
+    // Data rows
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#e2e8f0';
+
+    y += 25;
+
+    state.soundingData.levels.slice(0, 20).forEach(level => {
+        const row = `${level.pressure.toString().padStart(6)}  ${level.height.toString().padStart(7)}  ${level.temp.toFixed(1).padStart(6)}  ${level.dewpoint.toFixed(1).padStart(7)}  ${level.windDir.toString().padStart(5)}  ${level.windSpeed.toString().padStart(6)}`;
+        ctx.fillText(row, x, y);
+        y += 20;
+    });
+}
+
+function updateChartTitle() {
+    if (state.currentStation) {
+        document.getElementById('chartTitle').textContent = state.currentStation.name;
+        document.getElementById('chartSubtitle').textContent = `Upper air sounding • ${state.currentTime.toUpperCase()}`;
+    }
 }
 
 // ============================================================================
@@ -920,5 +842,4 @@ window.addEventListener('error', (e) => {
     showLoading(false);
 });
 
-console.log('⚡ NexRadar Pro - Radar Module Loaded');
-console.log('Features: NEXRAD Reflectivity + Velocity | RainViewer | Real NWS API | Activity Score');
+console.log('🎈 SkySound - Weather Sounding Analysis Module Loaded');
