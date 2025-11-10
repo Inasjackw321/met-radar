@@ -1,19 +1,5 @@
-// NexRadar - Main Application Logic
-// NEXRAD + RainViewer + Comprehensive NWS Warnings
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-const CONFIG = {
-    rainviewerAPI: 'https://api.rainviewer.com/public/weather-maps.json',
-    nexradWMS: 'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi',
-    nwsAlertsAPI: 'https://api.weather.gov/alerts/active',
-    mesonetAPI: 'https://api.synopticdata.com/v2/stations/latest',
-    defaultCenter: [39.8283, -98.5795], // Geographic center of US
-    defaultZoom: 5,
-    updateInterval: 300000 // 5 minutes
-};
+// NexRadar Pro - Professional Weather Radar Application
+// NEXRAD (Reflectivity + Velocity) | RainViewer | Real NWS API | Weather Activity Score
 
 // ============================================================================
 // STATE MANAGEMENT
@@ -22,23 +8,37 @@ const CONFIG = {
 const state = {
     map: null,
     currentUser: null,
-    radarLayers: {
-        nexrad: null,
-        rainviewer: null
+
+    // Radar layers
+    layers: {
+        nexradReflectivity: null,
+        nexradVelocity: null,
+        rainviewer: null,
+        warnings: null,
+        mesonet: null
     },
-    warningsLayer: null,
-    mesonetLayer: null,
+
+    // Data
+    warnings: [],
+    mesonetStations: [],
     rainviewerTimestamps: [],
     currentTimestampIndex: 0,
+
+    // Weather Activity Score
+    activityScore: 0,
+    activityLevel: 'calm',
+
+    // Animation
     animationInterval: null,
-    settings: {
-        nexradEnabled: false,
-        rainviewerEnabled: true,
-        warningsEnabled: true,
-        mesonetEnabled: true,
-        soundingsEnabled: false,
-        radarOpacity: 0.7,
-        animationSpeed: 5
+
+    // Settings (loaded from user preferences)
+    settings: {},
+
+    // Update intervals
+    intervals: {
+        radar: null,
+        warnings: null,
+        activity: null
     }
 };
 
@@ -55,18 +55,37 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Load user preferences
-    const prefs = window.AuthService.getUserPreferences();
-    Object.assign(state.settings, prefs);
+    // Load configuration and preferences
+    loadUserPreferences();
 
     // Initialize UI
     initializeUI();
+
+    // Initialize map
     initializeMap();
+
+    // Load initial data
     loadAllData();
+
+    // Start auto-refresh
     startAutoRefresh();
 
-    console.log('NexRadar initialized successfully');
+    console.log('🌐 NexRadar Pro initialized');
 });
+
+// ============================================================================
+// USER PREFERENCES
+// ============================================================================
+
+function loadUserPreferences() {
+    const prefs = window.AuthService.getUserPreferences();
+    state.settings = prefs;
+    console.log('Preferences loaded:', prefs);
+}
+
+function saveSettings() {
+    window.AuthService.saveUserPreferences(state.settings);
+}
 
 // ============================================================================
 // UI INITIALIZATION
@@ -79,18 +98,28 @@ function initializeUI() {
     document.getElementById('userAvatar').src = user.picture;
 
     // Setup event listeners
-    document.getElementById('radarBtn').addEventListener('click', toggleRadar);
-    document.getElementById('warningsBtn').addEventListener('click', toggleWarnings);
-    document.getElementById('settingsBtn').addEventListener('click', toggleSettings);
-    document.getElementById('userMenu').addEventListener('click', toggleUserMenu);
-    document.getElementById('signOutBtn').addEventListener('click', signOut);
+    setupEventListeners();
 
-    // Switches
-    document.getElementById('nexradSwitch').addEventListener('click', () => toggleSwitch('nexrad'));
-    document.getElementById('rainviewerSwitch').addEventListener('click', () => toggleSwitch('rainviewer'));
-    document.getElementById('warningsSwitch').addEventListener('click', () => toggleSwitch('warnings'));
-    document.getElementById('mesonetSwitch').addEventListener('click', () => toggleSwitch('mesonet'));
-    document.getElementById('soundingsSwitch').addEventListener('click', () => toggleSwitch('soundings'));
+    // Update UI from settings
+    updateUIFromSettings();
+}
+
+function setupEventListeners() {
+    // Top bar controls
+    document.getElementById('radarBtn').addEventListener('click', toggleRadarAnimation);
+    document.getElementById('warningsBtn').addEventListener('click', toggleWarningsPanel);
+    document.getElementById('settingsBtn').addEventListener('click', toggleSettingsPanel);
+    document.getElementById('userMenu').addEventListener('click', toggleUserMenu);
+    document.getElementById('signOutBtn').addEventListener('click', () => window.AuthService.signOut());
+
+    // Radar toggles
+    document.getElementById('nexradReflSwitch').addEventListener('click', () => toggleRadarSource('nexradReflectivity'));
+    document.getElementById('nexradVelSwitch').addEventListener('click', () => toggleRadarSource('nexradVelocity'));
+    document.getElementById('rainviewerSwitch').addEventListener('click', () => toggleRadarSource('rainviewer'));
+
+    // Data layer toggles
+    document.getElementById('warningsSwitch').addEventListener('click', () => toggleDataLayer('warnings'));
+    document.getElementById('mesonetSwitch').addEventListener('click', () => toggleDataLayer('mesonet'));
 
     // Sliders
     document.getElementById('opacitySlider').addEventListener('input', handleOpacityChange);
@@ -99,17 +128,22 @@ function initializeUI() {
     // Search
     document.getElementById('searchInput').addEventListener('keypress', handleSearch);
 
-    // Initialize switches based on settings
-    updateSwitchStates();
+    // Activity score click
+    const activityCard = document.getElementById('activityCard');
+    if (activityCard) {
+        activityCard.addEventListener('click', showActivityDetails);
+    }
 }
 
-function updateSwitchStates() {
-    setSwitch('nexradSwitch', state.settings.nexradEnabled);
+function updateUIFromSettings() {
+    // Update switches
+    setSwitch('nexradReflSwitch', state.settings.nexradReflectivityEnabled);
+    setSwitch('nexradVelSwitch', state.settings.nexradVelocityEnabled);
     setSwitch('rainviewerSwitch', state.settings.rainviewerEnabled);
     setSwitch('warningsSwitch', state.settings.warningsEnabled);
     setSwitch('mesonetSwitch', state.settings.mesonetEnabled);
-    setSwitch('soundingsSwitch', state.settings.soundingsEnabled);
 
+    // Update sliders
     document.getElementById('opacitySlider').value = state.settings.radarOpacity * 100;
     document.getElementById('opacityValue').textContent = Math.round(state.settings.radarOpacity * 100) + '%';
     document.getElementById('speedSlider').value = state.settings.animationSpeed;
@@ -118,99 +152,12 @@ function updateSwitchStates() {
 
 function setSwitch(id, active) {
     const element = document.getElementById(id);
-    if (active) {
-        element.classList.add('active');
-    } else {
-        element.classList.remove('active');
-    }
-}
-
-function toggleSwitch(type) {
-    const switchMap = {
-        'nexrad': 'nexradSwitch',
-        'rainviewer': 'rainviewerSwitch',
-        'warnings': 'warningsSwitch',
-        'mesonet': 'mesonetSwitch',
-        'soundings': 'soundingsSwitch'
-    };
-
-    const switchId = switchMap[type];
-    const switchEl = document.getElementById(switchId);
-    const isActive = switchEl.classList.toggle('active');
-
-    // Update state
-    state.settings[type + 'Enabled'] = isActive;
-
-    // Handle data loading
-    if (type === 'nexrad') {
-        isActive ? loadNEXRAD() : removeNEXRAD();
-    } else if (type === 'rainviewer') {
-        isActive ? loadRainViewer() : removeRainViewer();
-    } else if (type === 'warnings') {
-        isActive ? loadNWSWarnings() : clearWarnings();
-    } else if (type === 'mesonet') {
-        isActive ? loadMesonetData() : clearMesonet();
-    }
-
-    // Save preferences
-    window.AuthService.saveUserPreferences(state.settings);
-}
-
-function handleOpacityChange(e) {
-    const value = e.target.value / 100;
-    state.settings.radarOpacity = value;
-    document.getElementById('opacityValue').textContent = Math.round(value * 100) + '%';
-
-    // Update radar opacity
-    if (state.radarLayers.nexrad) {
-        state.radarLayers.nexrad.setOpacity(value);
-    }
-    if (state.radarLayers.rainviewer) {
-        state.radarLayers.rainviewer.setOpacity(value);
-    }
-
-    window.AuthService.saveUserPreferences(state.settings);
-}
-
-function handleSpeedChange(e) {
-    const value = parseInt(e.target.value);
-    state.settings.animationSpeed = value;
-    document.getElementById('speedValue').textContent = value + 'x';
-    window.AuthService.saveUserPreferences(state.settings);
-}
-
-function toggleRadar() {
-    // Start radar animation
-    if (state.animationInterval) {
-        stopAnimation();
-    } else {
-        startAnimation();
-    }
-}
-
-function toggleWarnings() {
-    const panel = document.getElementById('warningsPanel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-}
-
-function toggleSettings() {
-    document.getElementById('sidePanel').classList.toggle('open');
-}
-
-function toggleUserMenu() {
-    // Could show dropdown menu
-    const menu = confirm('Sign out?');
-    if (menu) signOut();
-}
-
-function signOut() {
-    window.AuthService.signOut();
-}
-
-function handleSearch(e) {
-    if (e.key === 'Enter') {
-        const query = e.target.value.trim();
-        if (query) searchLocation(query);
+    if (element) {
+        if (active) {
+            element.classList.add('active');
+        } else {
+            element.classList.remove('active');
+        }
     }
 }
 
@@ -221,57 +168,85 @@ function handleSearch(e) {
 function initializeMap() {
     // Initialize Leaflet map
     state.map = L.map('map', {
-        center: CONFIG.defaultCenter,
-        zoom: CONFIG.defaultZoom,
+        center: APP_CONFIG.map.defaultCenter,
+        zoom: APP_CONFIG.map.defaultZoom,
         zoomControl: true,
         attributionControl: false
     });
 
-    // Add base layer - Dark theme
+    // Add dark base layer
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
+        maxZoom: APP_CONFIG.map.maxZoom,
+        minZoom: APP_CONFIG.map.minZoom,
         subdomains: 'abcd'
     }).addTo(state.map);
 
     // Add attribution
     L.control.attribution({
         position: 'bottomright',
-        prefix: false
-    }).addAttribution('NexRadar | NOAA | RainViewer | CartoDB').addTo(state.map);
+        prefix: 'NexRadar Pro'
+    }).addAttribution('NOAA | NWS | RainViewer | CartoDB').addTo(state.map);
+
+    console.log('Map initialized');
 }
 
 // ============================================================================
-// NEXRAD RADAR
+// NEXRAD RADAR - REFLECTIVITY
 // ============================================================================
 
-function loadNEXRAD() {
-    removeNEXRAD();
+function loadNEXRADReflectivity() {
+    removeLayer('nexradReflectivity');
+
+    if (!state.settings.nexradReflectivityEnabled) return;
 
     showLoading(true);
 
     try {
-        // NEXRAD WMS layer from Iowa State Mesonet
-        state.radarLayers.nexrad = L.tileLayer.wms(CONFIG.nexradWMS, {
+        state.layers.nexradReflectivity = L.tileLayer.wms(APP_CONFIG.radar.nexrad.reflectivity, {
             layers: 'nexrad-n0r-wmst',
             format: 'image/png',
             transparent: true,
             opacity: state.settings.radarOpacity,
-            attribution: 'NEXRAD Data'
+            attribution: 'NEXRAD Reflectivity',
+            time: new Date().toISOString()
         });
 
-        state.radarLayers.nexrad.addTo(state.map);
-        console.log('NEXRAD radar loaded');
+        state.layers.nexradReflectivity.addTo(state.map);
+        console.log('NEXRAD Reflectivity loaded');
     } catch (error) {
-        console.error('Error loading NEXRAD:', error);
+        console.error('Error loading NEXRAD Reflectivity:', error);
     } finally {
         showLoading(false);
     }
 }
 
-function removeNEXRAD() {
-    if (state.radarLayers.nexrad) {
-        state.map.removeLayer(state.radarLayers.nexrad);
-        state.radarLayers.nexrad = null;
+// ============================================================================
+// NEXRAD RADAR - VELOCITY
+// ============================================================================
+
+function loadNEXRADVelocity() {
+    removeLayer('nexradVelocity');
+
+    if (!state.settings.nexradVelocityEnabled) return;
+
+    showLoading(true);
+
+    try {
+        state.layers.nexradVelocity = L.tileLayer.wms(APP_CONFIG.radar.nexrad.velocity, {
+            layers: 'nexrad-n0v-wmst',
+            format: 'image/png',
+            transparent: true,
+            opacity: state.settings.radarOpacity * 0.8,
+            attribution: 'NEXRAD Velocity',
+            time: new Date().toISOString()
+        });
+
+        state.layers.nexradVelocity.addTo(state.map);
+        console.log('NEXRAD Velocity loaded');
+    } catch (error) {
+        console.error('Error loading NEXRAD Velocity:', error);
+    } finally {
+        showLoading(false);
     }
 }
 
@@ -280,141 +255,102 @@ function removeNEXRAD() {
 // ============================================================================
 
 async function loadRainViewer() {
+    removeLayer('rainviewer');
+
+    if (!state.settings.rainviewerEnabled) return;
+
     showLoading(true);
 
     try {
-        // Fetch RainViewer API for available radar frames
-        const response = await fetch(CONFIG.rainviewerAPI);
+        const response = await fetch(APP_CONFIG.radar.rainviewer);
         const data = await response.json();
 
         if (data && data.radar && data.radar.past) {
-            state.rainviewerTimestamps = [
-                ...data.radar.past.map(item => item.path),
-                data.radar.nowcast ? data.radar.nowcast.map(item => item.path) : []
-            ].flat();
+            state.rainviewerTimestamps = data.radar.past.map(item => item.path);
 
-            // Load most recent frame
             if (state.rainviewerTimestamps.length > 0) {
                 state.currentTimestampIndex = state.rainviewerTimestamps.length - 1;
                 updateRainViewerLayer();
             }
 
-            console.log(`RainViewer loaded with ${state.rainviewerTimestamps.length} frames`);
+            console.log(`RainViewer loaded: ${state.rainviewerTimestamps.length} frames`);
         }
     } catch (error) {
         console.error('Error loading RainViewer:', error);
-        // Fallback to basic tile layer
-        loadRainViewerFallback();
     } finally {
         showLoading(false);
     }
 }
 
-function loadRainViewerFallback() {
-    // Use a static RainViewer tile layer as fallback
-    const timestamp = Math.floor(Date.now() / 1000);
-    const tileUrl = `https://tilecache.rainviewer.com/v2/radar/${timestamp}/256/{z}/{x}/{y}/2/1_1.png`;
-
-    state.radarLayers.rainviewer = L.tileLayer(tileUrl, {
-        opacity: state.settings.radarOpacity,
-        attribution: 'RainViewer',
-        tileSize: 256,
-        maxZoom: 19
-    });
-
-    state.radarLayers.rainviewer.addTo(state.map);
-}
-
 function updateRainViewerLayer() {
-    removeRainViewer();
+    removeLayer('rainviewer');
 
-    if (state.rainviewerTimestamps.length === 0) return;
+    if (!state.settings.rainviewerEnabled || state.rainviewerTimestamps.length === 0) return;
 
     const path = state.rainviewerTimestamps[state.currentTimestampIndex];
     const tileUrl = `https://tilecache.rainviewer.com${path}/256/{z}/{x}/{y}/2/1_1.png`;
 
-    state.radarLayers.rainviewer = L.tileLayer(tileUrl, {
+    state.layers.rainviewer = L.tileLayer(tileUrl, {
         opacity: state.settings.radarOpacity,
         attribution: 'RainViewer',
         tileSize: 256,
         maxZoom: 19
     });
 
-    state.radarLayers.rainviewer.addTo(state.map);
-}
-
-function removeRainViewer() {
-    if (state.radarLayers.rainviewer) {
-        state.map.removeLayer(state.radarLayers.rainviewer);
-        state.radarLayers.rainviewer = null;
-    }
+    state.layers.rainviewer.addTo(state.map);
 }
 
 // ============================================================================
-// RADAR ANIMATION
-// ============================================================================
-
-function startAnimation() {
-    if (state.animationInterval) return;
-
-    const speed = 2000 / state.settings.animationSpeed;
-
-    state.animationInterval = setInterval(() => {
-        if (state.settings.rainviewerEnabled && state.rainviewerTimestamps.length > 0) {
-            state.currentTimestampIndex = (state.currentTimestampIndex + 1) % state.rainviewerTimestamps.length;
-            updateRainViewerLayer();
-        } else if (state.settings.nexradEnabled) {
-            loadNEXRAD();
-        }
-    }, speed);
-
-    document.getElementById('radarBtn').classList.add('active');
-}
-
-function stopAnimation() {
-    if (state.animationInterval) {
-        clearInterval(state.animationInterval);
-        state.animationInterval = null;
-    }
-    document.getElementById('radarBtn').classList.remove('active');
-}
-
-// ============================================================================
-// NWS WARNINGS - COMPREHENSIVE
+// NWS WARNINGS API - REAL INTEGRATION
 // ============================================================================
 
 async function loadNWSWarnings() {
     showLoading(true);
 
     try {
-        // Fetch active alerts from NWS API
-        const response = await fetch(CONFIG.nwsAlertsAPI, {
+        // Try direct API call first
+        let response = await fetch(APP_CONFIG.weather.nwsAlerts, {
             headers: {
-                'User-Agent': 'NexRadar/1.0',
+                'User-Agent': 'NexRadarPro/1.0 (contact@nexradar.app)',
                 'Accept': 'application/geo+json'
             }
         }).catch(err => {
-            console.log('NWS API failed, using mock data');
+            console.log('Direct NWS API call failed, trying proxy...');
             return null;
         });
+
+        // If direct call failed, try with CORS proxy
+        if (!response || !response.ok) {
+            const proxyUrl = APP_CONFIG.weather.nwsAlertsProxy + encodeURIComponent(APP_CONFIG.weather.nwsAlerts);
+            response = await fetch(proxyUrl).catch(err => {
+                console.log('Proxy call also failed, using mock data');
+                return null;
+            });
+        }
 
         let alerts = [];
 
         if (response && response.ok) {
             const data = await response.json();
             alerts = data.features || [];
+            console.log(`✅ Loaded ${alerts.length} real NWS warnings`);
         } else {
-            // Use mock data
+            // Fallback to mock data
             alerts = generateMockWarnings();
+            console.log(`📝 Using ${alerts.length} mock warnings (API unavailable)`);
         }
 
+        state.warnings = alerts;
         displayWarnings(alerts);
         renderWarningsOnMap(alerts);
 
-        console.log(`Loaded ${alerts.length} NWS warnings`);
+        // Update activity score
+        calculateWeatherActivity();
+
     } catch (error) {
         console.error('Error loading NWS warnings:', error);
-        displayWarnings(generateMockWarnings());
+        state.warnings = generateMockWarnings();
+        displayWarnings(state.warnings);
     } finally {
         showLoading(false);
     }
@@ -425,11 +361,15 @@ function generateMockWarnings() {
         {
             properties: {
                 event: 'Tornado Warning',
-                areaDesc: 'Central Oklahoma',
+                areaDesc: 'Central Oklahoma County; Canadian County',
                 severity: 'Extreme',
                 urgency: 'Immediate',
-                expires: new Date(Date.now() + 3600000).toISOString(),
-                headline: 'Tornado Warning for Central Oklahoma'
+                certainty: 'Observed',
+                headline: 'Tornado Warning issued for Central Oklahoma',
+                description: 'At 445 PM CDT, a confirmed large and extremely dangerous tornado was located near Moore, moving northeast at 25 mph.',
+                expires: new Date(Date.now() + 2700000).toISOString(),
+                onset: new Date().toISOString(),
+                sent: new Date().toISOString()
             },
             geometry: {
                 type: 'Polygon',
@@ -439,57 +379,37 @@ function generateMockWarnings() {
         {
             properties: {
                 event: 'Severe Thunderstorm Warning',
-                areaDesc: 'Eastern Kansas',
+                areaDesc: 'Douglas County; Johnson County; Miami County',
                 severity: 'Severe',
-                urgency: 'Expected',
-                expires: new Date(Date.now() + 7200000).toISOString(),
-                headline: 'Severe Thunderstorm Warning for Eastern Kansas'
+                urgency: 'Immediate',
+                certainty: 'Observed',
+                headline: 'Severe Thunderstorm Warning for Eastern Kansas',
+                description: 'At 450 PM CDT, severe thunderstorms were located along a line extending from Olathe to Spring Hill, moving east at 40 mph. 60 MPH winds and quarter size hail.',
+                expires: new Date(Date.now() + 3600000).toISOString(),
+                onset: new Date().toISOString(),
+                sent: new Date().toISOString()
             },
             geometry: {
                 type: 'Polygon',
-                coordinates: [[[-95.5, 38.4], [-95.3, 38.4], [-95.3, 38.7], [-95.5, 38.7], [-95.5, 38.4]]]
+                coordinates: [[[-95.0, 38.7], [-94.7, 38.7], [-94.7, 39.0], [-95.0, 39.0], [-95.0, 38.7]]]
             }
         },
         {
             properties: {
                 event: 'Flash Flood Warning',
-                areaDesc: 'Southwest Missouri',
-                severity: 'Moderate',
-                urgency: 'Expected',
+                areaDesc: 'Greene County; Christian County',
+                severity: 'Severe',
+                urgency: 'Immediate',
+                certainty: 'Likely',
+                headline: 'Flash Flood Warning for Southwest Missouri',
+                description: 'At 452 PM CDT, Doppler radar indicated thunderstorms producing heavy rain. 2 to 4 inches of rain have fallen. Flash flooding is ongoing or expected to begin shortly.',
                 expires: new Date(Date.now() + 5400000).toISOString(),
-                headline: 'Flash Flood Warning for Southwest Missouri'
+                onset: new Date().toISOString(),
+                sent: new Date().toISOString()
             },
             geometry: {
                 type: 'Polygon',
-                coordinates: [[[-94.0, 37.0], [-93.7, 37.0], [-93.7, 37.3], [-94.0, 37.3], [-94.0, 37.0]]]
-            }
-        },
-        {
-            properties: {
-                event: 'Winter Storm Warning',
-                areaDesc: 'Northern Minnesota',
-                severity: 'Moderate',
-                urgency: 'Expected',
-                expires: new Date(Date.now() + 14400000).toISOString(),
-                headline: 'Winter Storm Warning for Northern Minnesota'
-            },
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[[-94.0, 47.0], [-93.0, 47.0], [-93.0, 48.0], [-94.0, 48.0], [-94.0, 47.0]]]
-            }
-        },
-        {
-            properties: {
-                event: 'Heat Advisory',
-                areaDesc: 'Southern Texas',
-                severity: 'Moderate',
-                urgency: 'Expected',
-                expires: new Date(Date.now() + 21600000).toISOString(),
-                headline: 'Heat Advisory for Southern Texas'
-            },
-            geometry: {
-                type: 'Polygon',
-                coordinates: [[[-98.0, 26.0], [-97.0, 26.0], [-97.0, 27.0], [-98.0, 27.0], [-98.0, 26.0]]]
+                coordinates: [[[-93.5, 37.0], [-93.2, 37.0], [-93.2, 37.3], [-93.5, 37.3], [-93.5, 37.0]]]
             }
         }
     ];
@@ -497,71 +417,89 @@ function generateMockWarnings() {
 
 function displayWarnings(alerts) {
     const panel = document.getElementById('warningsPanel');
-    panel.innerHTML = '';
+    if (!panel) return;
 
     if (alerts.length === 0) {
-        panel.innerHTML = '<div style="padding: 16px; text-align: center; color: #94a3b8;">No active warnings</div>';
+        panel.innerHTML = '<div class="no-warnings">No active warnings</div>';
         return;
     }
 
-    alerts.forEach(alert => {
+    panel.innerHTML = alerts.map(alert => {
         const props = alert.properties;
         const severity = getSeverityClass(props.severity);
-        const expires = new Date(props.expires).toLocaleTimeString();
+        const timeUntilExpires = getTimeUntilExpires(props.expires);
 
-        const card = document.createElement('div');
-        card.className = `warning-card ${severity}`;
-        card.innerHTML = `
-            <div class="warning-header">${props.event || 'Weather Alert'}</div>
-            <div class="warning-area">${props.areaDesc || 'Unknown Area'}</div>
-            <div class="warning-time">Expires: ${expires}</div>
+        return `
+            <div class="warning-card ${severity}" onclick="zoomToWarning('${alert.id || Math.random()}')">
+                <div class="warning-header">${props.event || 'Weather Alert'}</div>
+                <div class="warning-area">${props.areaDesc || 'Unknown Area'}</div>
+                <div class="warning-meta">
+                    <span class="warning-severity">${props.severity || 'Unknown'}</span>
+                    <span class="warning-expires">${timeUntilExpires}</span>
+                </div>
+            </div>
         `;
-
-        card.addEventListener('click', () => {
-            if (alert.geometry) {
-                zoomToWarning(alert);
-            }
-        });
-
-        panel.appendChild(card);
-    });
+    }).join('');
 }
 
 function getSeverityClass(severity) {
     const s = (severity || '').toLowerCase();
-    if (s === 'extreme') return '';
+    if (s === 'extreme') return 'extreme';
     if (s === 'severe') return 'severe';
     return 'moderate';
 }
 
+function getTimeUntilExpires(expiresISO) {
+    if (!expiresISO) return 'Unknown';
+
+    const now = new Date();
+    const expires = new Date(expiresISO);
+    const diff = expires - now;
+
+    if (diff < 0) return 'Expired';
+
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+
+    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+    return `${minutes}m`;
+}
+
 function renderWarningsOnMap(alerts) {
-    clearWarnings();
+    removeLayer('warnings');
 
     if (!state.settings.warningsEnabled) return;
 
     const warningsGroup = L.layerGroup();
 
-    alerts.forEach(alert => {
+    alerts.forEach((alert, index) => {
         const props = alert.properties;
         const geom = alert.geometry;
 
-        if (geom && geom.coordinates) {
+        if (geom && geom.coordinates && geom.coordinates.length > 0) {
             try {
                 const coords = geom.coordinates[0].map(coord => [coord[1], coord[0]]);
 
                 const polygon = L.polygon(coords, {
                     color: getWarningColor(props.event),
                     fillColor: getWarningColor(props.event),
-                    fillOpacity: 0.2,
-                    weight: 2
+                    fillOpacity: 0.25,
+                    weight: 2.5,
+                    dashArray: '5, 5'
                 });
 
                 polygon.bindPopup(`
-                    <strong>${props.event}</strong><br>
-                    ${props.areaDesc}<br>
-                    <em>${props.severity || 'Unknown'} severity</em><br>
-                    Expires: ${new Date(props.expires).toLocaleString()}
+                    <div class="warning-popup">
+                        <strong style="color: ${getWarningColor(props.event)}; font-size: 16px;">${props.event}</strong><br><br>
+                        <strong>Area:</strong> ${props.areaDesc}<br>
+                        <strong>Severity:</strong> ${props.severity}<br>
+                        <strong>Urgency:</strong> ${props.urgency}<br><br>
+                        <em>${props.headline || ''}</em>
+                    </div>
                 `);
+
+                // Store alert ID for zooming
+                polygon.alertIndex = index;
 
                 warningsGroup.addLayer(polygon);
             } catch (error) {
@@ -570,35 +508,142 @@ function renderWarningsOnMap(alerts) {
         }
     });
 
-    state.warningsLayer = warningsGroup;
+    state.layers.warnings = warningsGroup;
     warningsGroup.addTo(state.map);
 }
 
 function getWarningColor(eventType) {
     const type = (eventType || '').toLowerCase();
     if (type.includes('tornado')) return '#dc2626';
-    if (type.includes('severe')) return '#ea580c';
-    if (type.includes('flood')) return '#16a34a';
-    if (type.includes('winter') || type.includes('snow')) return '#0ea5e9';
+    if (type.includes('severe thunderstorm')) return '#ea580c';
+    if (type.includes('flash flood') || type.includes('flood')) return '#16a34a';
+    if (type.includes('winter') || type.includes('blizzard') || type.includes('snow')) return '#0ea5e9';
     if (type.includes('heat')) return '#f59e0b';
     if (type.includes('wind')) return '#8b5cf6';
+    if (type.includes('fire')) return '#dc2626';
     return '#eab308';
 }
 
-function clearWarnings() {
-    if (state.warningsLayer) {
-        state.map.removeLayer(state.warningsLayer);
-        state.warningsLayer = null;
-    }
-    document.getElementById('warningsPanel').innerHTML = '';
-}
+function zoomToWarning(alertId) {
+    const alert = state.warnings[alertId];
+    if (!alert || !alert.geometry) return;
 
-function zoomToWarning(alert) {
-    if (alert.geometry && alert.geometry.coordinates) {
+    try {
         const coords = alert.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
         const bounds = L.latLngBounds(coords);
         state.map.fitBounds(bounds, { padding: [50, 50] });
+    } catch (error) {
+        console.error('Error zooming to warning:', error);
     }
+}
+
+// ============================================================================
+// WEATHER ACTIVITY SCORE
+// ============================================================================
+
+function calculateWeatherActivity() {
+    let score = 0;
+    const weights = APP_CONFIG.activityWeights;
+
+    // Count warnings by type and severity
+    state.warnings.forEach(alert => {
+        const event = (alert.properties.event || '').toLowerCase();
+        const severity = (alert.properties.severity || '').toLowerCase();
+
+        // Base warning score
+        if (event.includes('tornado')) {
+            score += weights.tornadoWarning;
+        } else if (event.includes('severe thunderstorm')) {
+            score += weights.severeThunderstormWarning;
+        } else if (event.includes('flash flood')) {
+            score += weights.flashFloodWarning;
+        } else if (event.includes('winter storm')) {
+            score += weights.winterStormWarning;
+        } else {
+            score += weights.otherWarning;
+        }
+
+        // Severity multiplier
+        if (severity === 'extreme') score *= 1.5;
+        else if (severity === 'severe') score *= 1.25;
+    });
+
+    // Cap score at 100
+    score = Math.min(100, Math.round(score));
+
+    // Determine activity level
+    let level = 'calm';
+    if (score >= 80) level = 'extreme';
+    else if (score >= 60) level = 'high';
+    else if (score >= 40) level = 'elevated';
+    else if (score >= 20) level = 'moderate';
+    else if (score >= 10) level = 'low';
+
+    state.activityScore = score;
+    state.activityLevel = level;
+
+    // Update UI
+    updateActivityDisplay();
+
+    console.log(`Weather Activity Score: ${score} (${level})`);
+}
+
+function updateActivityDisplay() {
+    const card = document.getElementById('activityCard');
+    if (!card) return;
+
+    const score = state.activityScore;
+    const level = state.activityLevel;
+
+    // Update score number
+    const scoreEl = card.querySelector('.activity-score');
+    if (scoreEl) {
+        scoreEl.textContent = score;
+    }
+
+    // Update level text
+    const levelEl = card.querySelector('.activity-level');
+    if (levelEl) {
+        levelEl.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+    }
+
+    // Update colors based on level
+    card.className = 'activity-card activity-' + level;
+
+    // Update description
+    const descEl = card.querySelector('.activity-desc');
+    if (descEl) {
+        descEl.textContent = getActivityDescription(level);
+    }
+}
+
+function getActivityDescription(level) {
+    const descriptions = {
+        'calm': 'No significant weather',
+        'low': 'Minimal weather activity',
+        'moderate': 'Scattered weather events',
+        'elevated': 'Active weather conditions',
+        'high': 'Significant severe weather',
+        'extreme': 'Dangerous weather outbreak'
+    };
+    return descriptions[level] || 'Unknown';
+}
+
+function showActivityDetails() {
+    const warnings = state.warnings.length;
+    const score = state.activityScore;
+    const level = state.activityLevel;
+
+    const details = `
+Weather Activity Score: ${score}/100
+Level: ${level.toUpperCase()}
+Active Warnings: ${warnings}
+
+${state.warnings.slice(0, 5).map(w => '• ' + w.properties.event).join('\n')}
+${warnings > 5 ? '\n... and ' + (warnings - 5) + ' more' : ''}
+    `.trim();
+
+    alert(details);
 }
 
 // ============================================================================
@@ -606,28 +651,24 @@ function zoomToWarning(alert) {
 // ============================================================================
 
 async function loadMesonetData() {
-    try {
-        // Mock mesonet data for demonstration
-        const stations = generateMockMesonetData();
-        renderMesonetOnMap(stations);
-        console.log(`Loaded ${stations.length} mesonet stations`);
-    } catch (error) {
-        console.error('Error loading mesonet data:', error);
-    }
+    // Mock mesonet data for now
+    const stations = generateMockMesonetData();
+    state.mesonetStations = stations;
+    renderMesonetOnMap(stations);
 }
 
 function generateMockMesonetData() {
     return [
-        { name: 'Norman, OK', lat: 35.2226, lon: -97.4395, temp: 72, wind: 15 },
-        { name: 'Oklahoma City, OK', lat: 35.4676, lon: -97.5164, temp: 75, wind: 18 },
-        { name: 'Tulsa, OK', lat: 36.1539, lon: -95.9928, temp: 73, wind: 12 },
-        { name: 'Wichita, KS', lat: 37.6872, lon: -97.3301, temp: 70, wind: 20 },
-        { name: 'Kansas City, MO', lat: 39.0997, lon: -94.5786, temp: 68, wind: 14 }
+        { name: 'Norman, OK', lat: 35.2226, lon: -97.4395, temp: 78, wind: 18 },
+        { name: 'Oklahoma City', lat: 35.4676, lon: -97.5164, temp: 80, wind: 22 },
+        { name: 'Tulsa, OK', lat: 36.1539, lon: -95.9928, temp: 76, wind: 15 },
+        { name: 'Wichita, KS', lat: 37.6872, lon: -97.3301, temp: 74, wind: 20 },
+        { name: 'Kansas City', lat: 39.0997, lon: -94.5786, temp: 72, wind: 16 }
     ];
 }
 
 function renderMesonetOnMap(stations) {
-    clearMesonet();
+    removeLayer('mesonet');
 
     if (!state.settings.mesonetEnabled) return;
 
@@ -645,34 +686,164 @@ function renderMesonetOnMap(stations) {
 
         marker.bindPopup(`
             <strong>${station.name}</strong><br>
-            Temperature: ${station.temp}°F<br>
-            Wind: ${station.wind} mph
+            🌡️ ${station.temp}°F<br>
+            💨 ${station.wind} mph
         `);
 
         mesonetGroup.addLayer(marker);
     });
 
-    state.mesonetLayer = mesonetGroup;
+    state.layers.mesonet = mesonetGroup;
     mesonetGroup.addTo(state.map);
 }
 
-function clearMesonet() {
-    if (state.mesonetLayer) {
-        state.map.removeLayer(state.mesonetLayer);
-        state.mesonetLayer = null;
+// ============================================================================
+// RADAR CONTROLS
+// ============================================================================
+
+function toggleRadarSource(source) {
+    const key = source + 'Enabled';
+    state.settings[key] = !state.settings[key];
+
+    setSwitch(source === 'nexradReflectivity' ? 'nexradReflSwitch' :
+             source === 'nexradVelocity' ? 'nexradVelSwitch' : 'rainviewerSwitch',
+             state.settings[key]);
+
+    // Load or remove layer
+    if (source === 'nexradReflectivity') {
+        state.settings[key] ? loadNEXRADReflectivity() : removeLayer('nexradReflectivity');
+    } else if (source === 'nexradVelocity') {
+        state.settings[key] ? loadNEXRADVelocity() : removeLayer('nexradVelocity');
+    } else if (source === 'rainviewer') {
+        state.settings[key] ? loadRainViewer() : removeLayer('rainviewer');
+    }
+
+    saveSettings();
+}
+
+function toggleDataLayer(layer) {
+    const key = layer + 'Enabled';
+    state.settings[key] = !state.settings[key];
+
+    setSwitch(layer + 'Switch', state.settings[key]);
+
+    if (layer === 'warnings') {
+        state.settings[key] ? loadNWSWarnings() : removeLayer('warnings');
+    } else if (layer === 'mesonet') {
+        state.settings[key] ? loadMesonetData() : removeLayer('mesonet');
+    }
+
+    saveSettings();
+}
+
+function removeLayer(layerName) {
+    if (state.layers[layerName]) {
+        state.map.removeLayer(state.layers[layerName]);
+        state.layers[layerName] = null;
+    }
+}
+
+function handleOpacityChange(e) {
+    const value = e.target.value / 100;
+    state.settings.radarOpacity = value;
+    document.getElementById('opacityValue').textContent = Math.round(value * 100) + '%';
+
+    // Update all radar layers
+    if (state.layers.nexradReflectivity) state.layers.nexradReflectivity.setOpacity(value);
+    if (state.layers.nexradVelocity) state.layers.nexradVelocity.setOpacity(value * 0.8);
+    if (state.layers.rainviewer) state.layers.rainviewer.setOpacity(value);
+
+    saveSettings();
+}
+
+function handleSpeedChange(e) {
+    const value = parseInt(e.target.value);
+    state.settings.animationSpeed = value;
+    document.getElementById('speedValue').textContent = value + 'x';
+    saveSettings();
+}
+
+// ============================================================================
+// RADAR ANIMATION
+// ============================================================================
+
+function toggleRadarAnimation() {
+    if (state.animationInterval) {
+        stopAnimation();
+    } else {
+        startAnimation();
+    }
+}
+
+function startAnimation() {
+    if (state.animationInterval) return;
+
+    const speed = 2000 / state.settings.animationSpeed;
+
+    state.animationInterval = setInterval(() => {
+        if (state.settings.rainviewerEnabled && state.rainviewerTimestamps.length > 0) {
+            state.currentTimestampIndex = (state.currentTimestampIndex + 1) % state.rainviewerTimestamps.length;
+            updateRainViewerLayer();
+        } else if (state.settings.nexradReflectivityEnabled) {
+            loadNEXRADReflectivity();
+        } else if (state.settings.nexradVelocityEnabled) {
+            loadNEXRADVelocity();
+        }
+    }, speed);
+
+    document.getElementById('radarBtn').classList.add('active');
+}
+
+function stopAnimation() {
+    if (state.animationInterval) {
+        clearInterval(state.animationInterval);
+        state.animationInterval = null;
+    }
+    document.getElementById('radarBtn').classList.remove('active');
+}
+
+// ============================================================================
+// UI CONTROLS
+// ============================================================================
+
+function toggleWarningsPanel() {
+    const panel = document.getElementById('warningsFloating');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function toggleSettingsPanel() {
+    const panel = document.getElementById('sidePanel');
+    if (panel) {
+        panel.classList.toggle('open');
+    }
+}
+
+function toggleUserMenu() {
+    if (confirm('Sign out?')) {
+        window.AuthService.signOut();
     }
 }
 
 // ============================================================================
-// SEARCH & NAVIGATION
+// SEARCH
 // ============================================================================
+
+function handleSearch(e) {
+    if (e.key !== 'Enter') return;
+
+    const query = e.target.value.trim();
+    if (!query) return;
+
+    searchLocation(query);
+}
 
 async function searchLocation(query) {
     showLoading(true);
 
     try {
-        // Use Nominatim for geocoding
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
+        const url = `${APP_CONFIG.weather.geocoding}?format=json&q=${encodeURIComponent(query)}`;
         const response = await fetch(url);
         const results = await response.json();
 
@@ -697,43 +868,32 @@ async function searchLocation(query) {
 // ============================================================================
 
 function loadAllData() {
-    if (state.settings.rainviewerEnabled) {
-        loadRainViewer();
-    }
-
-    if (state.settings.nexradEnabled) {
-        loadNEXRAD();
-    }
-
-    if (state.settings.warningsEnabled) {
-        loadNWSWarnings();
-    }
-
-    if (state.settings.mesonetEnabled) {
-        loadMesonetData();
-    }
+    if (state.settings.nexradReflectivityEnabled) loadNEXRADReflectivity();
+    if (state.settings.nexradVelocityEnabled) loadNEXRADVelocity();
+    if (state.settings.rainviewerEnabled) loadRainViewer();
+    if (state.settings.warningsEnabled) loadNWSWarnings();
+    if (state.settings.mesonetEnabled) loadMesonetData();
 }
 
 function startAutoRefresh() {
-    setInterval(() => {
-        if (state.settings.rainviewerEnabled) {
-            loadRainViewer();
-        }
+    // Radar refresh
+    state.intervals.radar = setInterval(() => {
+        if (state.settings.nexradReflectivityEnabled) loadNEXRADReflectivity();
+        if (state.settings.nexradVelocityEnabled) loadNEXRADVelocity();
+        if (state.settings.rainviewerEnabled) loadRainViewer();
+    }, APP_CONFIG.intervals.radar);
 
-        if (state.settings.nexradEnabled) {
-            loadNEXRAD();
-        }
+    // Warnings refresh
+    state.intervals.warnings = setInterval(() => {
+        if (state.settings.warningsEnabled) loadNWSWarnings();
+    }, APP_CONFIG.intervals.warnings);
 
-        if (state.settings.warningsEnabled) {
-            loadNWSWarnings();
-        }
+    // Activity score update
+    state.intervals.activity = setInterval(() => {
+        calculateWeatherActivity();
+    }, APP_CONFIG.intervals.activity);
 
-        if (state.settings.mesonetEnabled) {
-            loadMesonetData();
-        }
-
-        console.log('Data refreshed');
-    }, CONFIG.updateInterval);
+    console.log('Auto-refresh started');
 }
 
 // ============================================================================
@@ -742,10 +902,12 @@ function startAutoRefresh() {
 
 function showLoading(show) {
     const overlay = document.getElementById('loadingOverlay');
-    if (show) {
-        overlay.classList.add('active');
-    } else {
-        overlay.classList.remove('active');
+    if (overlay) {
+        if (show) {
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
     }
 }
 
@@ -758,5 +920,5 @@ window.addEventListener('error', (e) => {
     showLoading(false);
 });
 
-console.log('🌐 NexRadar - Real-time Weather Visualization');
-console.log('Features: NEXRAD, RainViewer, NWS Warnings, Mesonet Data');
+console.log('⚡ NexRadar Pro - Radar Module Loaded');
+console.log('Features: NEXRAD Reflectivity + Velocity | RainViewer | Real NWS API | Activity Score');
