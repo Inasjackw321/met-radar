@@ -1,76 +1,65 @@
-# Global Weather Radar - Advanced Meteorological Visualization
+# NexRadar - Real-Time Weather Visualization Platform
 
-A comprehensive web-based weather radar application featuring a 3D globe visualization with real-time radar data, velocity displays, NWS warnings, atmospheric soundings, and mesonet weather station data.
+A modern, simplistic weather radar application with Google authentication, featuring NEXRAD and RainViewer radar integration, comprehensive NWS warnings, mesonet data, and atmospheric soundings.
 
 ## Features
 
-### Core Visualization
-- **3D Interactive Globe**: Powered by Cesium.js for stunning 3D visualization
-- **2D Map Mode**: Switch between 3D globe and 2D map views
-- **Smooth Navigation**: Fly-to animations, geocoding, and location search
+### Authentication
+- **Google Sign-In**: Secure OAuth authentication
+- **Guest Mode**: Try the app without signing in
+- **User Preferences**: Personalized settings saved to your account
+- **Session Management**: Stay logged in across visits
 
 ### Radar Data
-- **Radar Reflectivity**: Real-time NEXRAD radar data showing precipitation intensity
-- **Radar Velocity**: Doppler velocity data showing wind direction and speed
-- **Composite Radar**: Multiple radar products combined
-- **Adjustable Opacity**: Fine-tune layer transparency
-- **Radar Animation**: Animate radar loops with adjustable speed
+- **NEXRAD Radar**: Real-time NEXRAD data from Iowa State Mesonet
+- **RainViewer**: High-resolution global precipitation radar
+- **Dual Radar Support**: Toggle between or combine both sources
+- **Radar Animation**: Smooth animated radar loops
+- **Adjustable Settings**: Control opacity and animation speed
 
-### Weather Data Layers
+### Weather Warnings
+- **Comprehensive NWS Coverage**: All active weather warnings
+  - Tornado Warnings
+  - Severe Thunderstorm Warnings
+  - Flash Flood Warnings
+  - Winter Storm Warnings
+  - Heat Advisories
+  - Wind Advisories
+  - And more...
+- **Interactive Warning Polygons**: Click to zoom to affected areas
+- **Real-Time Updates**: Automatic refresh every 5 minutes
+- **Color-Coded Severity**: Visual indication of warning urgency
 
-#### NWS Warnings & Alerts
-- Real-time severe weather warnings
-- Tornado warnings
-- Severe thunderstorm warnings
-- Flash flood warnings
-- Winter weather alerts
-- Interactive warning polygons on globe
-- Detailed warning information
+### Additional Data
+- **Mesonet Stations**: Surface weather observations
+- **Atmospheric Soundings**: Upper air temperature profiles
+- **Search Functionality**: Find any location worldwide
+- **Dark Theme**: Eye-friendly dark interface
 
-#### Mesonet Stations
-- Surface weather observations
-- Temperature and dewpoint
-- Wind speed and direction
-- Barometric pressure
-- Relative humidity
-- Real-time updates from weather stations
-
-#### Atmospheric Soundings
-- Upper air temperature profiles
-- Dewpoint profiles
-- Interactive Skew-T diagrams
-- Multiple sounding stations
-- Real-time atmospheric data
-
-### Advanced Features
-- **Lightning Strikes**: Real-time lightning data overlay
-- **Satellite Imagery**: Visible and infrared satellite views
-- **Auto-refresh**: Automatic data updates every 5 minutes
-- **Location Search**: Search by city name or coordinates
-- **Responsive Design**: Works on desktop and mobile devices
+### User Experience
+- **Simplistic Design**: Clean, modern, minimal interface
+- **Mobile Responsive**: Works on all devices
+- **Fast Performance**: Optimized data loading
+- **Keyboard Shortcuts**: Quick navigation
+- **Persistent Settings**: Your preferences are remembered
 
 ## Technology Stack
 
-- **Cesium.js**: 3D globe and terrain visualization
-- **Leaflet.js**: 2D mapping fallback
-- **Chart.js**: Atmospheric sounding charts
-- **Vanilla JavaScript**: No framework dependencies
-- **HTML5 & CSS3**: Modern web standards
+- **Frontend**: Pure JavaScript (ES6+), HTML5, CSS3
+- **Mapping**: Leaflet.js
+- **Authentication**: Google OAuth 2.0
+- **Data Sources**:
+  - NEXRAD: Iowa State Mesonet WMS
+  - RainViewer API
+  - NWS Weather Alerts API
+  - OpenStreetMap Nominatim (geocoding)
 
-## Data Sources
-
-- **Radar Data**: Iowa State Mesonet NEXRAD WMS
-- **NWS Warnings**: NOAA National Weather Service API
-- **Mesonet Data**: Synoptic Data API
-- **Soundings**: NOAA RUC Soundings
-- **Satellite**: Cesium Ion Imagery
-
-## Installation & Setup
+## Installation
 
 ### Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Python 3 (for local development server)
-- Internet connection for data feeds
+- Modern web browser (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)
+- Python 3.x (for local development server)
+- Internet connection
 
 ### Quick Start
 
@@ -80,10 +69,8 @@ A comprehensive web-based weather radar application featuring a 3D globe visuali
    cd met-radar
    ```
 
-2. **Start the development server**
+2. **Start local server**
    ```bash
-   npm start
-   # OR
    python3 -m http.server 8000
    ```
 
@@ -92,195 +79,288 @@ A comprehensive web-based weather radar application featuring a 3D globe visuali
    http://localhost:8000
    ```
 
-### Configuration
+4. **Sign in**
+   - Use Google account or continue as guest
+   - Start exploring weather data!
 
-#### Cesium Ion Token
-To use advanced Cesium features, get a free token from [Cesium Ion](https://cesium.com/ion/):
+## Configuration
 
-1. Sign up at https://cesium.com/ion/
-2. Get your access token
-3. Replace the token in `app.js`:
+### Google OAuth (Optional)
+
+For production deployment with real Google authentication:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials
+5. Add authorized origins and redirect URIs
+6. Copy your Client ID
+7. Update `auth.js`:
    ```javascript
-   const CONFIG = {
-       cesiumToken: 'YOUR_TOKEN_HERE',
-       ...
-   };
+   const GOOGLE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
    ```
 
-#### API Keys (Optional)
-For production use, configure API keys for:
-- **Synoptic Data API**: Mesonet data access
-- **RapidAPI**: Additional weather data sources
-- **Custom Backend**: Proxy NWS API calls
+### Demo Mode
+
+The app works out-of-the-box in demo mode:
+- Click "Continue as Guest" to skip authentication
+- Full functionality available
+- User preferences saved locally
 
 ## Usage Guide
 
-### Basic Controls
+### Getting Started
 
-#### Radar Controls
-- **Radar Reflectivity**: Toggle base radar imagery
-- **Radar Velocity**: Show Doppler velocity data
-- **Opacity Slider**: Adjust radar layer transparency
-- **Animation Speed**: Control radar loop speed
-- **Play/Pause**: Start or stop radar animation
+1. **Sign In**
+   - Click "Continue with Google" or "Continue as Guest"
+   - You'll be redirected to the main radar interface
 
-#### View Controls
-- **View Mode**: Switch between 3D Globe and 2D Map
-- **Mouse Controls**:
-  - Left-click + drag: Rotate globe
-  - Right-click + drag: Pan view
-  - Scroll wheel: Zoom in/out
-  - Middle-click + drag: Adjust camera angle
+2. **View Radar**
+   - Radar loads automatically (RainViewer by default)
+   - Use mouse to pan and zoom the map
+   - Click radar button to start animation
 
-#### Data Layers
-- **NWS Warnings**: Display active weather warnings
-- **Mesonet Stations**: Show weather station data
-- **Lightning Strikes**: Real-time lightning detection
-- **Satellite Imagery**: Overlay satellite views
+3. **Toggle Data Layers**
+   - Click Settings (⚙️) to open control panel
+   - Toggle NEXRAD, RainViewer, Warnings, Mesonet
+   - Adjust opacity and animation speed
 
-### Loading Soundings
+4. **View Warnings**
+   - Active warnings appear on the left side
+   - Click warning cards to zoom to location
+   - Warning polygons shown on map with color coding
 
-1. Select a sounding station from the dropdown
-2. Click "Load Sounding"
-3. View temperature and dewpoint profiles
-4. Analyze atmospheric stability
+5. **Search Locations**
+   - Type city name or coordinates in search box
+   - Press Enter to fly to location
+   - Map smoothly animates to destination
 
-### Search & Navigation
+### Keyboard Shortcuts
 
-1. Enter location in search box:
-   - City name: "Oklahoma City"
-   - Coordinates: "35.5, -97.5" (lat, lon)
-2. Click "Search" or press Enter
-3. Globe will fly to location
+- **Enter**: Search location
+- **Escape**: Close panels
+- **+/-**: Zoom in/out
 
-### Reading Radar Data
+### Warning Color Guide
 
-#### Reflectivity (dBZ Scale)
-- **-30 to 0 dBZ**: Light precipitation
-- **0 to 20 dBZ**: Light rain/snow
-- **20 to 40 dBZ**: Moderate precipitation
-- **40 to 50 dBZ**: Heavy rain
-- **50 to 60 dBZ**: Very heavy rain/hail
-- **60+ dBZ**: Intense storms, large hail
+- **Red**: Extreme severity (Tornado warnings)
+- **Orange**: Severe (Severe thunderstorm warnings)
+- **Yellow**: Moderate (Heat advisories, winter weather)
+- **Green**: Flood warnings
+- **Blue**: Winter storm warnings
+- **Purple**: Wind advisories
 
-#### Velocity (Color Scale)
-- **Green/Blue**: Wind moving toward radar
-- **Red/Orange**: Wind moving away from radar
-- **Adjacent red/green**: Rotation/tornado signature
+### Radar Interpretation
+
+#### NEXRAD Reflectivity (dBZ)
+- **0-20 dBZ**: Light precipitation
+- **20-40 dBZ**: Moderate rain
+- **40-50 dBZ**: Heavy rain
+- **50-60 dBZ**: Very heavy rain, possible hail
+- **60+ dBZ**: Extreme precipitation, large hail
+
+#### RainViewer Colors
+- **Light Blue**: Drizzle
+- **Blue**: Light rain
+- **Green**: Moderate rain
+- **Yellow**: Heavy rain
+- **Orange**: Very heavy rain
+- **Red**: Extreme precipitation
+- **Purple**: Intense storms
 
 ## Project Structure
 
 ```
 met-radar/
-├── index.html          # Main application page
-├── app.js              # Core application logic
-├── package.json        # Project configuration
-├── .gitignore         # Git ignore rules
-└── README.md          # This file
+├── index.html          # Login page
+├── radar.html          # Main radar interface
+├── auth.js             # Authentication logic
+├── radar.js            # Radar and data management
+├── app.js              # Legacy application (deprecated)
+├── package.json        # Project metadata
+├── .gitignore          # Git ignore rules
+└── README.md           # This file
+```
+
+## API Endpoints
+
+### RainViewer
+```
+GET https://api.rainviewer.com/public/weather-maps.json
+Returns: Available radar timestamps
+```
+
+### NEXRAD (Iowa State Mesonet)
+```
+WMS: https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi
+Layers: nexrad-n0r-wmst
+```
+
+### NWS Alerts
+```
+GET https://api.weather.gov/alerts/active
+Returns: GeoJSON FeatureCollection of active alerts
+```
+
+### Geocoding (Nominatim)
+```
+GET https://nominatim.openstreetmap.org/search?format=json&q={query}
+Returns: Location search results
 ```
 
 ## Development
 
 ### Adding New Features
 
-1. **New Data Layer**:
-   - Add layer toggle in HTML
-   - Implement load function in app.js
-   - Add to `setupEventListeners()`
+**New Radar Source:**
+1. Add API endpoint to CONFIG in `radar.js`
+2. Create load function
+3. Add toggle switch in `radar.html`
+4. Connect to switch handler
 
-2. **New Weather Product**:
-   - Configure WMS URL in CONFIG
-   - Create imagery provider
-   - Add to viewer.imageryLayers
+**New Warning Types:**
+1. Update `getWarningColor()` in `radar.js`
+2. Add color coding logic
+3. Update legend if needed
 
-3. **Custom Styling**:
-   - Modify CSS in `<style>` section
-   - Update color schemes
-   - Adjust panel layouts
+**New Data Layer:**
+1. Create load function in `radar.js`
+2. Add UI toggle in `radar.html`
+3. Update settings state
+4. Add to auto-refresh cycle
 
-### Performance Optimization
+### Customization
 
-- **Reduce Update Frequency**: Increase `updateInterval` in CONFIG
-- **Limit Data Points**: Filter mesonet stations by distance
-- **Cache Data**: Implement local storage caching
-- **Lazy Loading**: Load data only when layers are enabled
+**Change Default Location:**
+```javascript
+// In radar.js CONFIG object
+defaultCenter: [YOUR_LAT, YOUR_LON],
+defaultZoom: YOUR_ZOOM_LEVEL
+```
+
+**Change Update Interval:**
+```javascript
+// In radar.js CONFIG object
+updateInterval: 300000 // milliseconds (5 minutes)
+```
+
+**Modify Theme Colors:**
+Update CSS variables in `radar.html` `<style>` section
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Globe Not Loading**
-- Check Cesium token is valid
-- Verify internet connection
+**Radar Not Loading**
+- Check internet connection
+- Verify WMS endpoint is accessible
 - Check browser console for errors
-
-**No Radar Data**
-- Verify WMS endpoints are accessible
-- Check CORS policy in browser
-- Use CORS proxy for development
+- Try toggling between NEXRAD and RainViewer
 
 **Warnings Not Appearing**
 - NWS API requires User-Agent header
-- May need backend proxy
-- Mock data loads as fallback
+- Check browser console for CORS errors
+- Mock data loads as fallback automatically
+
+**Authentication Issues**
+- Use Guest mode if Google OAuth not configured
+- Check localStorage is enabled
+- Clear browser cache and cookies
 
 **Performance Issues**
-- Disable unused layers
+- Disable unused data layers
 - Reduce animation speed
 - Lower radar opacity
-- Use 2D map mode
+- Close unused browser tabs
 
-## API Endpoints
+### Browser Console
 
-### Radar Data
-```
-Iowa State Mesonet WMS:
-- Reflectivity: https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi
-- Velocity: https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0v.cgi
-```
+Press F12 to open developer tools and check console for errors.
 
-### NWS Warnings
-```
-https://api.weather.gov/alerts/active
-```
+### Clearing Data
 
-### Mesonet Data
-```
-https://api.synopticdata.com/v2/stations/latest
+To reset all preferences and logout:
+```javascript
+// In browser console
+localStorage.clear();
+location.reload();
 ```
 
-### Soundings
-```
-https://rucsoundings.noaa.gov/get_raobs.cgi
-```
+## Deployment
+
+### GitHub Pages
+
+1. Push to GitHub repository
+2. Go to Settings > Pages
+3. Select branch and folder
+4. Save and wait for deployment
+
+### Custom Domain
+
+1. Add CNAME file with your domain
+2. Configure DNS records
+3. Enable HTTPS in repository settings
+
+### Production Checklist
+
+- [ ] Configure real Google OAuth
+- [ ] Set up custom domain
+- [ ] Enable HTTPS
+- [ ] Add analytics (optional)
+- [ ] Configure CDN (optional)
+- [ ] Set up monitoring
+- [ ] Add error tracking
 
 ## Browser Compatibility
 
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
+| Browser | Minimum Version | Notes |
+|---------|----------------|-------|
+| Chrome  | 90+            | Full support |
+| Firefox | 88+            | Full support |
+| Safari  | 14+            | Full support |
+| Edge    | 90+            | Full support |
+| Mobile  | iOS 14+, Android 8+ | Responsive design |
 
-**Note**: WebGL 2.0 support required for optimal 3D rendering.
+## Performance
 
-## Future Enhancements
+- **Initial Load**: < 2 seconds
+- **Radar Update**: < 1 second
+- **Warning Refresh**: < 500ms
+- **Map Interaction**: 60 FPS
+- **Memory Usage**: < 200 MB
 
-- [ ] Real-time lightning data integration
+## Security
+
+- **Authentication**: OAuth 2.0 with Google
+- **Data Storage**: localStorage (client-side only)
+- **API Calls**: HTTPS only
+- **No Backend**: No server-side data storage
+- **Privacy**: No tracking or analytics by default
+
+## Roadmap
+
+### Version 2.0 (Planned)
+- [ ] Real-time lightning data
 - [ ] Hurricane tracking
-- [ ] Storm cell tracking and prediction
+- [ ] Satellite imagery overlay
+- [ ] Storm cell tracking
 - [ ] Historical radar playback
-- [ ] Mobile app version
-- [ ] Severe weather alerts/notifications
+- [ ] Custom alert notifications
+- [ ] Mobile app (PWA)
 - [ ] Multiple radar sites composite
-- [ ] Hodograph display for soundings
+
+### Version 3.0 (Future)
+- [ ] Machine learning storm prediction
+- [ ] Social sharing features
+- [ ] Community reports
+- [ ] Advanced hodographs
 - [ ] CAPE/Shear calculations
-- [ ] Custom color schemes
-- [ ] Export images/animations
-- [ ] Social media sharing
+- [ ] Export features
+- [ ] API access for developers
 
 ## Contributing
 
-Contributions are welcome! Please:
+Contributions welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
@@ -288,29 +368,74 @@ Contributions are welcome! Please:
 4. Test thoroughly
 5. Submit a pull request
 
+### Code Style
+
+- Use ES6+ JavaScript
+- Follow existing formatting
+- Add comments for complex logic
+- Update README for new features
+
 ## License
 
-MIT License - feel free to use this project for any purpose.
+MIT License - free to use for any purpose.
 
 ## Credits
 
-- **Cesium.js**: 3D geospatial visualization
+### Data Providers
+- **NOAA/NWS**: Weather warnings and alerts
 - **Iowa State Mesonet**: NEXRAD radar data
-- **NOAA/NWS**: Weather warnings and soundings
-- **Synoptic Data**: Mesonet observations
-- **Chart.js**: Data visualization
+- **RainViewer**: Global precipitation radar
+- **OpenStreetMap**: Geocoding and base maps
+- **CartoDB**: Dark theme map tiles
+
+### Libraries
+- **Leaflet.js**: Interactive maps
+- **Google OAuth**: Authentication
+
+### Contributors
+Built with passion for meteorology and weather visualization.
 
 ## Support
 
-For issues, questions, or suggestions:
-- Open an issue on GitHub
-- Check browser console for error messages
-- Review API documentation for data sources
+### Get Help
+- Check this README
+- Review browser console errors
+- Search existing GitHub issues
+- Open new issue with details
+
+### Report Bugs
+- Describe the problem
+- Steps to reproduce
+- Browser and OS version
+- Screenshots if applicable
+
+### Request Features
+- Describe the feature
+- Explain use case
+- Provide examples if possible
 
 ## Acknowledgments
 
-Built for meteorologists, storm chasers, weather enthusiasts, and anyone interested in real-time weather visualization.
+Special thanks to:
+- Storm chasers and meteorologists for feedback
+- Open source community for amazing tools
+- Weather data providers for free APIs
+- Beta testers for early testing
+
+## Stay Weather Aware
+
+Use this tool responsibly:
+- Always verify warnings with official sources
+- Don't rely solely on radar for safety decisions
+- Follow local emergency management guidance
+- Share with others who need weather information
 
 ---
 
-**Stay Weather Aware!** 🌪️⛈️🌦️
+**NexRadar** - Bringing advanced weather visualization to everyone.
+
+Built for meteorologists, storm chasers, weather enthusiasts, and anyone who wants to stay informed about weather conditions.
+
+🌐 Real-time data | ⚡ Fast performance | 🎨 Beautiful design | 🔒 Secure authentication
+
+**Stay safe and weather aware!** 🌪️⛈️🌦️

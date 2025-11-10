@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexRadar - Live Weather</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet for mapping -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0f172a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* Simplified Top Bar */
+        .top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 64px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+        }
+
+        .logo-text {
+            font-size: 20px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .controls-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: #60a5fa;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+
+        .control-btn.active {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+            color: #60a5fa;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .user-menu:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid #3b82f6;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+
+        /* Simplified Side Panel */
+        .side-panel {
+            position: absolute;
+            top: 64px;
+            right: 0;
+            width: 360px;
+            height: calc(100vh - 64px);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 900;
+            overflow-y: auto;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .side-panel.open {
+            transform: translateX(0);
+        }
+
+        .panel-section {
+            padding: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f1f5f9;
+            margin-bottom: 16px;
+        }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+
+        .switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .switch.active {
+            background: #3b82f6;
+        }
+
+        .switch-knob {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+
+        .switch.active .switch-knob {
+            left: 22px;
+        }
+
+        .slider-control {
+            margin: 16px 0;
+        }
+
+        .slider-label {
+            font-size: 14px;
+            color: #cbd5e1;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Warnings Panel */
+        .warnings-floating {
+            position: absolute;
+            top: 80px;
+            left: 16px;
+            max-width: 360px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+            z-index: 800;
+        }
+
+        .warning-card {
+            background: rgba(239, 68, 68, 0.95);
+            backdrop-filter: blur(10px);
+            border-left: 4px solid #dc2626;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        .warning-card.severe {
+            background: rgba(251, 146, 60, 0.95);
+            border-left-color: #ea580c;
+        }
+
+        .warning-card.moderate {
+            background: rgba(234, 179, 8, 0.95);
+            border-left-color: #ca8a04;
+        }
+
+        .warning-header {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .warning-area {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 4px;
+        }
+
+        .warning-time {
+            font-size: 11px;
+            opacity: 0.75;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            z-index: 700;
+        }
+
+        .legend-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #cbd5e1;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .legend-scale {
+            display: flex;
+            height: 16px;
+            width: 240px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 6px;
+            font-size: 10px;
+            color: #94a3b8;
+        }
+
+        /* Search Box */
+        .search-box {
+            position: absolute;
+            top: 80px;
+            right: 16px;
+            width: 320px;
+            z-index: 800;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .search-input::placeholder {
+            color: #64748b;
+        }
+
+        /* Loading */
+        .loading-overlay {
+            position: absolute;
+            top: 64px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(59, 130, 246, 0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .side-panel {
+                width: 100%;
+            }
+
+            .search-box {
+                width: calc(100% - 32px);
+            }
+
+            .warnings-floating {
+                max-width: calc(100% - 32px);
+            }
+
+            .controls-section .control-btn span {
+                display: none;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="logo-section">
+            <div class="logo-icon">🌐</div>
+            <div class="logo-text">NexRadar</div>
+        </div>
+
+        <div class="controls-section">
+            <button class="control-btn active" id="radarBtn">
+                ⚡ <span>Radar</span>
+            </button>
+            <button class="control-btn" id="warningsBtn">
+                ⚠️ <span>Warnings</span>
+            </button>
+            <button class="control-btn" id="settingsBtn">
+                ⚙️ <span>Settings</span>
+            </button>
+        </div>
+
+        <div class="user-menu" id="userMenu">
+            <img class="user-avatar" id="userAvatar" src="https://ui-avatars.com/api/?name=User&background=3b82f6&color=fff" alt="User">
+            <span class="user-name" id="userName">User</span>
+        </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-section">
+            <div class="panel-title">Radar Source</div>
+            <div class="toggle-switch">
+                <span class="toggle-label">NEXRAD</span>
+                <div class="switch" id="nexradSwitch">
+                    <div class="switch-knob"></div>
+                </div>
+            </div>
+            <div class="toggle-switch">
+                <span class="toggle-label">RainViewer</span>
+                <div class="switch active" id="rainviewerSwitch">
+                    <div class="switch-knob"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Data Layers</div>
+            <div class="toggle-switch">
+                <span class="toggle-label">NWS Warnings</span>
+                <div class="switch active" id="warningsSwitch">
+                    <div class="switch-knob"></div>
+                </div>
+            </div>
+            <div class="toggle-switch">
+                <span class="toggle-label">Mesonet Stations</span>
+                <div class="switch active" id="mesonetSwitch">
+                    <div class="switch-knob"></div>
+                </div>
+            </div>
+            <div class="toggle-switch">
+                <span class="toggle-label">Soundings</span>
+                <div class="switch" id="soundingsSwitch">
+                    <div class="switch-knob"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Radar Settings</div>
+            <div class="slider-control">
+                <div class="slider-label">
+                    <span>Opacity</span>
+                    <span id="opacityValue">70%</span>
+                </div>
+                <input type="range" class="slider" id="opacitySlider" min="0" max="100" value="70">
+            </div>
+            <div class="slider-control">
+                <div class="slider-label">
+                    <span>Animation Speed</span>
+                    <span id="speedValue">5x</span>
+                </div>
+                <input type="range" class="slider" id="speedSlider" min="1" max="10" value="5">
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Account</div>
+            <button class="control-btn" id="signOutBtn" style="width: 100%;">
+                🚪 Sign Out
+            </button>
+        </div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="search-box">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search location...">
+    </div>
+
+    <!-- Warnings Panel -->
+    <div class="warnings-floating" id="warningsPanel"></div>
+
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-title">Radar Intensity (dBZ)</div>
+        <div class="legend-scale">
+            <div style="flex: 1; background: #00E5FF;"></div>
+            <div style="flex: 1; background: #00B0FF;"></div>
+            <div style="flex: 1; background: #00E400;"></div>
+            <div style="flex: 1; background: #FFFF00;"></div>
+            <div style="flex: 1; background: #FF9800;"></div>
+            <div style="flex: 1; background: #FF0000;"></div>
+            <div style="flex: 1; background: #C711E1;"></div>
+        </div>
+        <div class="legend-labels">
+            <span>5</span>
+            <span>20</span>
+            <span>35</span>
+            <span>50</span>
+            <span>65</span>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="radar.js"></script>
+</body>
+</html>

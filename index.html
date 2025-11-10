@@ -3,18 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Weather Radar - Advanced Meteorological Visualization</title>
+    <title>NexRadar - Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Cesium for 3D Globe -->
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js"></script>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-
-    <!-- Leaflet for 2D Map backup -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Chart.js for soundings -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <!-- Google Sign-In -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <style>
         * {
@@ -24,461 +19,288 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0a0e27;
-            color: #fff;
-            overflow: hidden;
-        }
-
-        #cesiumContainer {
-            width: 100%;
-            height: 100vh;
-            position: relative;
-        }
-
-        .control-panel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(10, 14, 39, 0.95);
-            border: 2px solid #00ffff;
-            border-radius: 10px;
-            padding: 20px;
-            max-width: 350px;
-            max-height: 80vh;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
-        }
-
-        .control-panel h2 {
-            color: #00ffff;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            border-bottom: 2px solid #00ffff;
-            padding-bottom: 10px;
-        }
-
-        .control-panel h3 {
-            color: #00ccff;
-            margin-top: 15px;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .control-group {
-            margin-bottom: 15px;
-        }
-
-        .control-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #aaddff;
-            font-size: 0.9em;
-        }
-
-        .control-group input[type="range"] {
-            width: 100%;
-            margin: 5px 0;
-        }
-
-        .control-group select,
-        .control-group input[type="text"] {
-            width: 100%;
-            padding: 8px;
-            background: rgba(0, 50, 100, 0.5);
-            border: 1px solid #00aaff;
-            border-radius: 5px;
-            color: #fff;
-            font-size: 0.9em;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, #00aaff, #0066cc);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin: 5px 5px 5px 0;
-            transition: all 0.3s;
-        }
-
-        .btn:hover {
-            background: linear-gradient(135deg, #00ccff, #0088ee);
-            box-shadow: 0 0 10px rgba(0, 170, 255, 0.5);
-        }
-
-        .btn.active {
-            background: linear-gradient(135deg, #00ff00, #00aa00);
-        }
-
-        .warnings-panel {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(139, 0, 0, 0.95);
-            border: 2px solid #ff4444;
-            border-radius: 10px;
-            padding: 15px;
-            max-width: 350px;
-            max-height: 400px;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
-        }
-
-        .warnings-panel h2 {
-            color: #ff4444;
-            margin-bottom: 10px;
-            font-size: 1.2em;
-        }
-
-        .warning-item {
-            background: rgba(255, 0, 0, 0.2);
-            border-left: 4px solid #ff4444;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-        }
-
-        .warning-item .warning-type {
-            font-weight: bold;
-            color: #ffaa00;
-            margin-bottom: 5px;
-        }
-
-        .warning-item .warning-area {
-            font-size: 0.85em;
-            color: #ffcccc;
-        }
-
-        .soundings-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(10, 14, 39, 0.95);
-            border: 2px solid #00ff88;
-            border-radius: 10px;
-            padding: 15px;
-            width: 400px;
-            height: 350px;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
-        }
-
-        .soundings-panel.active {
-            display: block;
-        }
-
-        .soundings-panel h2 {
-            color: #00ff88;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        #soundingChart {
-            width: 100%;
-            height: 280px;
-        }
-
-        .mesonet-panel {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(10, 14, 39, 0.95);
-            border: 2px solid #ffaa00;
-            border-radius: 10px;
-            padding: 15px;
-            max-width: 300px;
-            max-height: 300px;
-            overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 0 20px rgba(255, 170, 0, 0.3);
-        }
-
-        .mesonet-panel h2 {
-            color: #ffaa00;
-            margin-bottom: 10px;
-            font-size: 1.1em;
-        }
-
-        .mesonet-item {
-            background: rgba(255, 170, 0, 0.1);
-            border-left: 3px solid #ffaa00;
-            padding: 8px;
-            margin-bottom: 8px;
-            border-radius: 3px;
-            font-size: 0.85em;
-        }
-
-        .mesonet-item .station-name {
-            font-weight: bold;
-            color: #ffcc44;
-        }
-
-        .legend {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(10, 14, 39, 0.9);
-            border: 2px solid #00ffff;
-            border-radius: 10px;
-            padding: 10px 20px;
-            z-index: 1000;
-        }
-
-        .legend-title {
-            color: #00ffff;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-            text-align: center;
-        }
-
-        .legend-scale {
-            display: flex;
-            height: 20px;
-            width: 300px;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .legend-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
-            font-size: 0.75em;
-            color: #aaddff;
-        }
-
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px 40px;
-            border-radius: 10px;
-            border: 2px solid #00ffff;
-            z-index: 2000;
-            display: none;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            border: 4px solid rgba(0, 255, 255, 0.1);
-            border-radius: 50%;
-            border-top: 4px solid #00ffff;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .info-display {
-            background: rgba(0, 100, 200, 0.2);
-            border-radius: 5px;
-            padding: 8px;
-            margin-top: 10px;
-            font-size: 0.85em;
-        }
-
-        .info-display .info-label {
-            color: #00ccff;
-            font-weight: bold;
-        }
-
-        .checkbox-group {
-            margin: 10px 0;
-        }
-
-        .checkbox-group label {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
-            margin: 5px 0;
+            justify-content: center;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .radar-pulse {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            animation: pulse 4s ease-out infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            100% {
+                width: 600px;
+                height: 600px;
+                opacity: 0;
+            }
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 10;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 60px;
+            max-width: 480px;
+            width: 90%;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .logo-container {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .app-name {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1px;
+        }
+
+        .app-tagline {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-top: 8px;
+            font-weight: 400;
+        }
+
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .welcome-text h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #f1f5f9;
+        }
+
+        .welcome-text p {
+            font-size: 14px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        .google-signin-container {
+            display: flex;
+            justify-content: center;
+            margin: 32px 0;
+        }
+
+        .google-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 14px 24px;
+            background: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #1e293b;
             cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        .checkbox-group input[type="checkbox"] {
-            margin-right: 8px;
+        .google-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        }
+
+        .google-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 32px 0;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .divider span {
+            padding: 0 16px;
+        }
+
+        .features {
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .demo-btn {
+            width: 100%;
+            padding: 14px 24px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #60a5fa;
             cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 16px;
         }
 
-        ::-webkit-scrollbar {
-            width: 8px;
+        .demo-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
         }
 
-        ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.3);
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 12px;
+            color: #64748b;
         }
 
-        ::-webkit-scrollbar-thumb {
-            background: #00aaff;
-            border-radius: 4px;
-        }
+        @media (max-width: 640px) {
+            .login-container {
+                padding: 40px 30px;
+            }
 
-        ::-webkit-scrollbar-thumb:hover {
-            background: #00ccff;
+            .app-name {
+                font-size: 28px;
+            }
+
+            .welcome-text h1 {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="cesiumContainer"></div>
-
-    <!-- Control Panel -->
-    <div class="control-panel">
-        <h2>🌍 Global Weather Radar</h2>
-
-        <div class="control-group">
-            <label>View Mode:</label>
-            <select id="viewMode">
-                <option value="globe">3D Globe</option>
-                <option value="map2d">2D Map</option>
-            </select>
-        </div>
-
-        <h3>Radar Controls</h3>
-
-        <div class="checkbox-group">
-            <label>
-                <input type="checkbox" id="radarReflectivity" checked>
-                Radar Reflectivity
-            </label>
-            <label>
-                <input type="checkbox" id="radarVelocity">
-                Radar Velocity
-            </label>
-            <label>
-                <input type="checkbox" id="radarComposite">
-                Composite Radar
-            </label>
-        </div>
-
-        <div class="control-group">
-            <label>Opacity: <span id="opacityValue">0.7</span></label>
-            <input type="range" id="radarOpacity" min="0" max="1" step="0.1" value="0.7">
-        </div>
-
-        <div class="control-group">
-            <label>Animation Speed:</label>
-            <input type="range" id="animationSpeed" min="0" max="10" step="1" value="5">
-        </div>
-
-        <div class="control-group">
-            <button class="btn" id="playAnimation">▶ Play Animation</button>
-            <button class="btn" id="stopAnimation">⏸ Pause</button>
-        </div>
-
-        <h3>Data Layers</h3>
-
-        <div class="checkbox-group">
-            <label>
-                <input type="checkbox" id="showWarnings" checked>
-                NWS Warnings
-            </label>
-            <label>
-                <input type="checkbox" id="showMesonet" checked>
-                Mesonet Stations
-            </label>
-            <label>
-                <input type="checkbox" id="showLightning">
-                Lightning Strikes
-            </label>
-            <label>
-                <input type="checkbox" id="showSatellite">
-                Satellite Imagery
-            </label>
-        </div>
-
-        <h3>Soundings</h3>
-
-        <div class="control-group">
-            <label>Select Station:</label>
-            <select id="soundingStation">
-                <option value="">Click map to select...</option>
-                <option value="KOKC">Oklahoma City (KOKC)</option>
-                <option value="KDDC">Dodge City (KDDC)</option>
-                <option value="KOUN">Norman (KOUN)</option>
-                <option value="KSGF">Springfield (KSGF)</option>
-                <option value="KTOP">Topeka (KTOP)</option>
-            </select>
-        </div>
-
-        <button class="btn" id="loadSounding">Load Sounding</button>
-
-        <h3>Search Location</h3>
-
-        <div class="control-group">
-            <input type="text" id="searchLocation" placeholder="Enter city or coordinates...">
-            <button class="btn" id="searchBtn" style="width: 100%; margin-top: 5px;">Search</button>
-        </div>
-
-        <div class="info-display">
-            <div class="info-label">Current View:</div>
-            <div id="currentLocation">Global View</div>
-            <div class="info-label" style="margin-top: 5px;">Data Updated:</div>
-            <div id="lastUpdate">--:--</div>
-        </div>
+    <div class="background-animation">
+        <div class="radar-pulse" style="top: 20%; left: 30%;"></div>
+        <div class="radar-pulse" style="top: 60%; left: 70%; animation-delay: 1s;"></div>
+        <div class="radar-pulse" style="top: 40%; left: 50%; animation-delay: 2s;"></div>
     </div>
 
-    <!-- Warnings Panel -->
-    <div class="warnings-panel">
-        <h2>⚠️ Active NWS Warnings</h2>
-        <div id="warningsList">
-            <div style="text-align: center; color: #ffcccc; padding: 20px;">
-                Loading warnings...
+    <div class="login-container">
+        <div class="logo-container">
+            <div class="logo">🌐</div>
+            <div class="app-name">NexRadar</div>
+            <div class="app-tagline">Real-time weather visualization platform</div>
+        </div>
+
+        <div class="welcome-text">
+            <h1>Welcome Back</h1>
+            <p>Sign in to access global weather radar, live warnings, and advanced meteorological data</p>
+        </div>
+
+        <div class="google-signin-container">
+            <button class="google-btn" id="googleSignIn">
+                <svg class="google-icon" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Continue with Google
+            </button>
+        </div>
+
+        <div class="divider">
+            <span>or</span>
+        </div>
+
+        <button class="demo-btn" id="demoMode">
+            Continue as Guest
+        </button>
+
+        <div class="features">
+            <div class="feature-item">
+                <div class="feature-icon">⚡</div>
+                <span>Real-time NEXRAD & RainViewer radar</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚠️</div>
+                <span>Live NWS warnings & alerts</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🌡️</div>
+                <span>Mesonet weather stations</span>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <span>Atmospheric soundings</span>
             </div>
         </div>
-    </div>
 
-    <!-- Soundings Panel -->
-    <div class="soundings-panel" id="soundingsPanel">
-        <h2>📊 Atmospheric Sounding</h2>
-        <canvas id="soundingChart"></canvas>
-        <button class="btn" id="closeSounding" style="margin-top: 10px;">Close</button>
-    </div>
-
-    <!-- Mesonet Panel -->
-    <div class="mesonet-panel">
-        <h2>🌡️ Mesonet Data</h2>
-        <div id="mesonetList">
-            <div style="text-align: center; color: #ffddaa; padding: 20px;">
-                Loading mesonet data...
-            </div>
+        <div class="footer">
+            <p>&copy; 2024 NexRadar. Weather data from NOAA and partners.</p>
         </div>
     </div>
 
-    <!-- Legend -->
-    <div class="legend">
-        <div class="legend-title">Radar Reflectivity (dBZ)</div>
-        <div class="legend-scale" id="legendScale"></div>
-        <div class="legend-labels">
-            <span>-30</span>
-            <span>0</span>
-            <span>20</span>
-            <span>40</span>
-            <span>60</span>
-            <span>75</span>
-        </div>
-    </div>
-
-    <!-- Loading Indicator -->
-    <div class="loading" id="loadingIndicator">
-        <div class="spinner"></div>
-        <div style="text-align: center; color: #00ffff;">Loading data...</div>
-    </div>
-
-    <script src="app.js"></script>
+    <script src="auth.js"></script>
 </body>
 </html>
